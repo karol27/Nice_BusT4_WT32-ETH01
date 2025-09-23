@@ -388,7 +388,10 @@ class NiceBusT4 : public Component, public Cover {
     uint8_t p_open_mode;        // l2L6 - partial open - 0x21
     uint8_t maint_not_mode;     // l2L7 - maintenance notification
     uint8_t fault_list_mode;    // l2L8 - list of faults
-    
+
+    // other settings
+    uint8_t op_block; 
+
     //additional parameters values
     uint8_t current_position;
     uint16_t max_encoder_position;
