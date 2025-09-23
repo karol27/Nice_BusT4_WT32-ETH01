@@ -797,11 +797,7 @@ select:
             args: [ "(id(speed_open_select).index_of(x.c_str())).value_or(0)" ]
 
         - lambda: |-
-<<<<<<< HEAD
             if (x != "other") {
-=======
-            if (x != other) {
->>>>>>> b24ffc2ec92e7473ac4393bc17419b52b5167f5f
               int open_speed_variable;
               switch ((id(speed_open_select).index_of(x.c_str())).value_or(0)) {
                 case 0:
@@ -899,11 +895,7 @@ select:
             args: [ "(id(speed_close_select).index_of(x.c_str())).value_or(0)" ]
 
         - lambda: |-
-<<<<<<< HEAD
             if (x != "other") {
-=======
-            if (x != "other" {
->>>>>>> b24ffc2ec92e7473ac4393bc17419b52b5167f5f
               int close_speed_variable;
               switch ((id(speed_close_select).index_of(x.c_str())).value_or(0)) {
                 case 0:
