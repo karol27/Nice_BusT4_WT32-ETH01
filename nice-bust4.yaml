@@ -167,10 +167,16 @@ button:
         - component.update: sbs_mode_text_sensor  # Update text_sensor immedietely
         - component.update: motor_speed_open_text_sensor  # Update text_sensor immedietely
         - component.update: motor_speed_close_text_sensor  # Update text_sensor immedietely
+        - component.update: goi_mode_text_sensor  # Update select component immedietely
+        - component.update: motor_force_open_text_sensor  # Update select component immedietely
+        - component.update: motor_force_close_text_sensor  # Update select component immedietely
+
         - component.update: current_position_text_sensor  # Update text_sensor immedietely
         - component.update: max_opn_text_sensor  # Update text_sensor immedietely
+
         - component.update: pause_time_number  # Update number component immedietely
         - component.update: sbs_mode_select  # Update select component immedietely
+
 
 
   # - platform: template
@@ -770,7 +776,7 @@ select:
             args: [ "(id(speed_open_select).index_of(x.c_str())).value_or(0)" ]
 
         - lambda: |-
-            if (x <> other) {
+            if (x != "other") {
               int open_speed_variable;
               switch ((id(speed_open_select).index_of(x.c_str())).value_or(0)) {
                 case 0:
@@ -800,7 +806,7 @@ select:
               //ESP_LOGD("debug", "open_speed_variable_dec: %d", open_speed_variable);
               my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "42", "a9", "00", true, open_speed_variable_hex);
               my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "42", "99", "00", true, "01");
-          }
+            }
         # - lambda: |-
         #     auto index_optional = id(sbs_mode_select).index_of(x.c_str());
         #     int index = index_optional.value_or(0) + 1; //Conversion from optional to int. Indexes are numbered from 0, so we add 1 to get the correct mode number (1 to 8).
@@ -868,7 +874,7 @@ select:
             args: [ "(id(speed_close_select).index_of(x.c_str())).value_or(0)" ]
 
         - lambda: |-
-            if (x <> "other" {
+            if (x != "other") {
               int close_speed_variable;
               switch ((id(speed_close_select).index_of(x.c_str())).value_or(0)) {
                 case 0:
@@ -900,7 +906,7 @@ select:
 
 # L4 - GOI OUTPUT  -----------------------------------------
   - platform: template
-    name: l2L3 - close speed select
+    name: l2L4 - GOI mode
     id: goi_select
     # optimistic: True
     options:
@@ -957,7 +963,7 @@ select:
             args: [ "(id(goi_select).index_of(x.c_str())).value_or(0)" ]
 
         - lambda: |-
-            if (x <> "unknown") {
+            if (x != "unknown") {
               int goi_mode_variable;
               switch ((id(goi_select).index_of(x.c_str())).value_or(0)) {
                 case 0:
@@ -978,10 +984,10 @@ select:
                 case 5:
                   goi_mode_variable = 18;
                   break;
-                case 5:
+                case 6:
                   goi_mode_variable = 4;
                   break;
-                case 5:
+                case 7:
                   goi_mode_variable = 7;
                   break;
               }
@@ -992,6 +998,197 @@ select:
             }  
         - delay: 1s  
         - component.update: goi_mode_text_sensor  # update text_sensor immedietely
+
+# L5 - Force open  -----------------------------------------
+  - platform: template
+    name: l2L5 - Force open
+    id: motor_force_open_select
+    # optimistic: True
+    options:
+      - 'L1 - Ultra-light'
+      - 'L2 - Very light'
+      - 'L3 - Light'
+      - 'L4 - Average'
+      - 'L5 - Medium-heavy'
+      - 'L6 - Heavy'
+      - 'L7 - Very heavy'
+      - 'L8 - Ultra-heavy'
+      - 'other'
+    lambda: |- 
+        std::string new_option;
+        switch (my_nice_cover -> NiceBusT4::motor_force_open) {
+          case 1: //w DEC
+            new_option = id(motor_force_open_select).at(0).value_or("other");
+            break;
+          case 3:
+            new_option = id(motor_force_open_select).at(1).value_or("other");
+            break;
+          case 2:
+            new_option = id(motor_force_open_select).at(2).value_or("other");
+            break;
+          case 16:
+            new_option = id(motor_force_open_select).at(3).value_or("other");
+            break;
+          case 17:
+            new_option = id(motor_force_open_select).at(4).value_or("other");
+            break;
+          case 18:
+            new_option = id(motor_force_open_select).at(5).value_or("other");
+            break;
+          case 4:
+            new_option = id(motor_force_open_select).at(6).value_or("other");
+            break;
+          case 7:
+            new_option = id(motor_force_open_select).at(7).value_or("other");
+            break;
+          default:
+            new_option = "unknown";  // Default option if the level is out of range
+        }
+        //id(motor_force_open_select).publish_state(new_option.c_str());
+        //ESP_LOGD("debug", "new_option = : %s", new_option.c_str());
+        return new_option;
+
+    set_action: 
+      then:
+        - logger.log: 
+            format: "chosen option %s"
+            args: [ "x.c_str()" ]
+        - logger.log: 
+            format: "Selected index: %d"
+            args: [ "(id(motor_force_open_select).index_of(x.c_str())).value_or(0)" ]
+
+        - lambda: |-
+            if (x != "other") {
+              int motor_force_open_variable;
+              switch ((id(motor_force_open_select).index_of(x.c_str())).value_or(0)) {
+                case 0:
+                  motor_force_open_variable = 1;
+                  break;
+                case 1:
+                  motor_force_open_variable = 3;
+                  break;
+                case 2:
+                  motor_force_open_variable = 2;
+                  break;
+                case 3:
+                  motor_force_open_variable = 16;
+                  break;
+                case 4:
+                  motor_force_open_variable = 17;
+                  break;
+                case 5:
+                  motor_force_open_variable = 18;
+                  break;
+                case 6:
+                  motor_force_open_variable = 4;
+                  break;
+                case 7:
+                  motor_force_open_variable = 7;
+                  break;
+              }
+              char motor_force_open_variable_hex[2];
+              sprintf(motor_force_open_variable_hex, "%X", motor_force_open_variable);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "a9", "00", true, motor_force_open_variable_hex);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "99", "00", true, "01");
+            }  
+        - delay: 1s  
+        - component.update: motor_force_open_text_sensor  # update text_sensor immedietely
+
+
+# L5 - Force close  -----------------------------------------
+  - platform: template
+    name: l2L5 - Force close
+    id: motor_force_close_select
+    # optimistic: True
+    options:
+      - 'L1 - Ultra-light'
+      - 'L2 - Very light'
+      - 'L3 - Light'
+      - 'L4 - Average'
+      - 'L5 - Medium-heavy'
+      - 'L6 - Heavy'
+      - 'L7 - Very heavy'
+      - 'L8 - Ultra-heavy'
+      - 'other'
+    lambda: |- 
+        std::string new_option;
+        switch (my_nice_cover -> NiceBusT4::motor_force_close) {
+          case 1: //w DEC
+            new_option = id(motor_force_close_select).at(0).value_or("other");
+            break;
+          case 3:
+            new_option = id(motor_force_close_select).at(1).value_or("other");
+            break;
+          case 2:
+            new_option = id(motor_force_close_select).at(2).value_or("other");
+            break;
+          case 16:
+            new_option = id(motor_force_close_select).at(3).value_or("other");
+            break;
+          case 17:
+            new_option = id(motor_force_close_select).at(4).value_or("other");
+            break;
+          case 18:
+            new_option = id(motor_force_close_select).at(5).value_or("other");
+            break;
+          case 4:
+            new_option = id(motor_force_close_select).at(6).value_or("other");
+            break;
+          case 7:
+            new_option = id(motor_force_close_select).at(7).value_or("other");
+            break;
+          default:
+            new_option = "unknown";  // Default option if the level is out of range
+        }
+        //id(motor_force_close_select).publish_state(new_option.c_str());
+        //ESP_LOGD("debug", "new_option = : %s", new_option.c_str());
+        return new_option;
+
+    set_action: 
+      then:
+        - logger.log: 
+            format: "chosen option %s"
+            args: [ "x.c_str()" ]
+        - logger.log: 
+            format: "Selected index: %d"
+            args: [ "(id(motor_force_close_select).index_of(x.c_str())).value_or(0)" ]
+
+        - lambda: |-
+            if (x != "other") {
+              int motor_force_close_variable;
+              switch ((id(motor_force_close_select).index_of(x.c_str())).value_or(0)) {
+                case 0:
+                  motor_force_close_variable = 1;
+                  break;
+                case 1:
+                  motor_force_close_variable = 3;
+                  break;
+                case 2:
+                  motor_force_close_variable = 2;
+                  break;
+                case 3:
+                  motor_force_close_variable = 16;
+                  break;
+                case 4:
+                  motor_force_close_variable = 17;
+                  break;
+                case 5:
+                  motor_force_close_variable = 18;
+                  break;
+                case 6:
+                  motor_force_close_variable = 4;
+                  break;
+                case 7:
+                  motor_force_close_variable = 7;
+                  break;
+              }
+              char motor_force_close_variable_hex[2];
+              sprintf(motor_force_close_variable_hex, "%X", motor_force_close_variable);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "a9", "00", true, motor_force_close_variable_hex);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "99", "00", true, "01");
+            }  
+        - delay: 1s  
+        - component.update: motor_force_close_text_sensor  # update text_sensor immedietely
 
 # For information purposes - just to be sure of setting values
 text_sensor:
@@ -1043,11 +1240,27 @@ text_sensor:
       return {buf};
 
   - platform: template
-    name: "l2L3: GOI mode"
+    name: "l2L4: GOI mode"
     id: goi_mode_text_sensor
     lambda: |-
       static char buf[4];
       sprintf(buf, "%u", my_nice_cover -> NiceBusT4::out2);
+      return {buf};
+
+  - platform: template
+    name: "l2L5: Motor force open"
+    id: motor_force_open_text_sensor
+    lambda: |-
+      static char buf[4];
+      sprintf(buf, "%u", my_nice_cover -> NiceBusT4::motor_force_open);
+      return {buf};
+
+  - platform: template
+    name: "l2L5: Motor force close"
+    id: motor_force_close_text_sensor
+    lambda: |-
+      static char buf[4];
+      sprintf(buf, "%u", my_nice_cover -> NiceBusT4::motor_force_close);
       return {buf};
 
   - platform: template
