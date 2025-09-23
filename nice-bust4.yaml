@@ -378,11 +378,32 @@ switch:
     turn_on_action:
       lambda: |-
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "98", "a9", "00", true, "01");
-        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "98", "99", "00", true, "01");              
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "98", "99", "00", true, "01");
     turn_off_action:
       lambda: |-
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "98", "a9", "00", true, "00");
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "98", "99", "00", true, "01");
+
+  #When this command is sent, the control unit is blocked and does not perform any type of command, with the exception of “High priority step-step”, “Release”, “Release and close” and “Release and open”.
+  - platform: template
+    name: "Operator block"
+    id: operator_block
+    restore_mode: DISABLED
+#    optimistic: true
+    lambda: |-
+      if (my_nice_cover -> NiceBusT4::op_block_flag) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "a9", "00", true, "01");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "99", "00", true, "01");              
+    turn_off_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "a9", "00", true, "00");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "99", "00", true, "01");
 
 # cover:
 cover:

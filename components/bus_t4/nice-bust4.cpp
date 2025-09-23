@@ -405,7 +405,7 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
         case STANDBY_ON:
           this->standby_flag = data[14];
           ESP_LOGCONFIG(TAG, "  Stand-by - L4: %S ", standby_flag ? "Yes" : "No");
-          break; 
+          break;
         
         case START_ON:
           this->peak_flag = data[14];
@@ -489,7 +489,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           this->p_count = (data[14] << 24) + (data[15] << 16) + (data[16] << 8) + data[17];
           ESP_LOGCONFIG(TAG, "  Number of cycles: %u", p_count ); 
           break;
-          
+					
+        case OP_BLOCK:
+          this->op_block_flag = data[14];
+          ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");
+          break; 
       } // switch cmd_submnu
     } // if completed responses to GET requests received without errors from the drive
 
@@ -567,6 +571,10 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
         case P_COUNT:
          tx_buffer_.push(gen_inf_cmd(FOR_CU, P_COUNT, GET)); // number of cycles
          break;
+				 
+				case OP_BLOCK:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, OP_BLOCK, GET)); // Standby
+          break;
       }// switch cmd_submnu
     }// if responses to SET requests received without errors from the drive
 
@@ -1008,6 +1016,7 @@ void NiceBusT4::dump_config() {    //  add information about the connected contr
   ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %u ", motor_force_open);
   ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %u ", motor_force_close);
   ESP_LOGCONFIG(TAG, "  Number of cycles: %u ", p_count);
+	ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");  
 
 }
 
@@ -1191,6 +1200,7 @@ void NiceBusT4::init_device(const uint8_t addr1, const uint8_t addr2, const uint
 
     //other settings/informations
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, P_COUNT, GET, 0x00)); // Number of cycles
+		tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Stand by  
   }
   if (device == FOR_OXI) {
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, FOR_ALL, PRD, GET, 0x00)); // product request
