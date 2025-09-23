@@ -388,7 +388,10 @@ class NiceBusT4 : public Component, public Cover {
     uint8_t p_open_mode;        // l2L6 - partial open - 0x21
     uint8_t maint_not_mode;     // l2L7 - maintenance notification
     uint8_t fault_list_mode;    // l2L8 - list of faults
-    
+
+    // other settings
+    bool op_block_flag; 
+
     //additional parameters values
     uint8_t current_position;
     uint16_t max_encoder_position;
@@ -478,7 +481,7 @@ class NiceBusT4 : public Component, public Cover {
 
     std::vector<uint8_t> raw_cmd_prepare (std::string data);             // preparing user-entered data for sending
 
-    // генерация inf команд
+    // generating of inf commands
     std::vector<uint8_t> gen_inf_cmd(const uint8_t to_addr1, const uint8_t to_addr2, const uint8_t whose, const uint8_t inf_cmd, const uint8_t run_cmd, const uint8_t next_data, const std::vector<uint8_t> &data, size_t len);  // all fields
     std::vector<uint8_t> gen_inf_cmd(const uint8_t whose, const uint8_t inf_cmd, const uint8_t run_cmd) {return gen_inf_cmd(this->addr_to[0], this->addr_to[1], whose, inf_cmd, run_cmd, 0x00, {0x00}, 0 );} // for commands without data
     std::vector<uint8_t> gen_inf_cmd(const uint8_t whose, const uint8_t inf_cmd, const uint8_t run_cmd, const uint8_t next_data, std::vector<uint8_t> data){
