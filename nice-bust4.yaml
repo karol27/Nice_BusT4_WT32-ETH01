@@ -644,41 +644,41 @@ select:
     id: sbs_mode_select
     # optimistic: True
     options:
-      - 'L1 - Otwiera - stop - zamyka - stop'
-      - 'L2 - Otwiera - stop - zamyka - otwiera'
-      - 'L3 - Otwiera - zamyka - otwiera - zamyka'
-      - 'L4 - Zespół mieszkalny'
-      - 'L5 - Zespół mieszkalny 2 (ponad 2” zatrzymuje)'
-      - 'L6 - Krok po Kroku 2 (mniej niż 2” otwiera częściowo)'
-      - 'L7 - Manualny'
-      - 'L8 - Otwarcie w trybie „półautomatycznym”, zamknięcie w trybie „manualnym”'
+      - 'L1 - Open - Stop - Close - Stop'
+      - 'L2 - Open - Stop - Close - Open'
+      - 'L3 - Open - Close - Open - Close'
+      - 'L4 - Apartment block 1' # This executes the sequence “close - stop - partial open 1- partial open 1” until the maximum position is reached as programmed in the function “Partial Open 1”. Note – If another command is sent after this one, the application executes the Closing manoeuvre with the same sequence.
+      - 'L5 - Apartment block 2 (more than 2” generates stop)'
+      - 'L6 - Step-by-Step 2 (less than 2” causes partial opening)'
+      - 'L7 - Hold-to-run' #The Partial open 1 or Closing manoeuvre is executed exclusively if the transmitter key is held down (hold-to-run)
+      - 'L8 - “Semi-automatic” opening, “hold-to-run” closing'
     # initial_option: 'L1 - Otwiera	-	stop	-	zamyka	-	stop'
     lambda: |-
         std::string new_option;
         switch (my_nice_cover -> NiceBusT4::step_by_step_mode) {
           case 1:
-            new_option = "L1 - Otwiera - stop - zamyka - stop";
+            new_option = "L1 - Open - Stop - Close - Stop";
             break;
           case 2:
-            new_option = "L2 - Otwiera - stop - zamyka - otwiera";
+            new_option = "L2 - Open - Stop - Close - Open";
             break;
           case 3:
-            new_option = "L3 - Otwiera - zamyka - otwiera - zamyka";
+            new_option = "L3 - Open - Close - Open - Close";
             break;
           case 4:
-            new_option = "L4 - Zespół mieszkalny";
+            new_option = "L4 - Apartment block 1";
             break;
           case 5:
-            new_option = "L5 - Zespół mieszkalny 2 (ponad 2” zatrzymuje)";
+            new_option = "L5 - Apartment block 2 (more than 2” generates stop)";
             break;
           case 6:
-            new_option = "L6 - Krok po Kroku 2 (mniej niż 2” otwiera częściowo)";
+            new_option = "L6 - Step-by-Step 2 (less than 2” causes partial opening)";
             break;
           case 7:
-            new_option = "L7 - Manualny";
+            new_option = "L7 - Hold-to-run";
             break;
           case 8:
-            new_option = "L8 - Otwarcie w trybie „półautomatycznym”, zamknięcie w trybie „manualnym”";
+            new_option = "L8 - “Semi-automatic” opening, “hold-to-run” closing";
             break;
           default:
             new_option = "unknown";  // Default option if the level is out of range
