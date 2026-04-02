@@ -65,22 +65,20 @@ void NiceBusT4::control(const CoverCall &call) {
 }
 
 void NiceBusT4::setup() {
+  ESP_LOGI(TAG, "setup() UART%d TX=%d RX=%d", _uart_nr, _tx_pin, _rx_pin);
 
-
- // _uart =  uart_init(_UART_NO, BAUD_WORK, SERIAL_8N1, SERIAL_6E2, TX_P, 256, false); //for ESP8266
-  _uart =  uartBegin(_UART_NO, BAUD_WORK, SERIAL_8N1, RX_PIN, TX_PIN, 256, 256, false, 112); //for WT32
-  // who's online?
-//  this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, WHO, GET, 0x00));
-
-  // ESP_LOGD("setup", "Wywołanie setup()");
-  // if (this->pause_time_sensor == nullptr) {
-    // // Użycie operatora & do uzyskania wskaźnika do id(pause_time_sensor)
-    // this->pause_time_sensor = &id(pause_time_sensor);
-    // ESP_LOGD("setup", "pause_time_sensor został przypisany w setup: %p", this->pause_time_sensor);
-  // } else {
-    // ESP_LOGW("setup", "pause_time_sensor już został przypisany");
-  // }
-
+  // Use pure ESP-IDF UART API — compatible with ESP32 (Xtensa) and ESP32-C3 (RISC-V)
+  uart_config_t uart_config = {
+      .baud_rate  = BAUD_WORK,
+      .data_bits  = UART_DATA_8_BITS,
+      .parity     = UART_PARITY_DISABLE,
+      .stop_bits  = UART_STOP_BITS_1,
+      .flow_ctrl  = UART_HW_FLOWCTRL_DISABLE,
+      .source_clk = UART_SCLK_DEFAULT,
+  };
+  uart_param_config((uart_port_t)_uart_nr, &uart_config);
+  uart_set_pin((uart_port_t)_uart_nr, _tx_pin, _rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+  uart_driver_install((uart_port_t)_uart_nr, 256, 0, 0, NULL, 0);
 }
 
 void NiceBusT4::loop() {
@@ -116,9 +114,8 @@ void NiceBusT4::loop() {
   } 
 
 
-  while (uartAvailable(_uart) > 0) {
-    //uint8_t c = (uint8_t)uart_Read(_uart);                // read the byte for ESP8266
-    uint8_t c = (uint8_t)uartRead(_uart);                // read the byte for ESP32
+  uint8_t c;
+  while (uart_read_bytes((uart_port_t)_uart_nr, &c, 1, 0) > 0) {
     this->handle_char_(c);                                     // send the byte for processing
     this->last_uart_byte_ = now;
   } //while
@@ -1112,30 +1109,24 @@ void NiceBusT4::send_array_cmd(std::vector<uint8_t> data) {          // sends br
   return send_array_cmd((const uint8_t *)data.data(), data.size());
 }
 void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
-  // sending data to uart
+  uart_port_t port = (uart_port_t)_uart_nr;
 
-  char br_ch = 0x00;                            // for break
-  uartFlush(_uart);                             // clear uart
-  uartSetBaudRate(_uart, BAUD_BREAK);           // lower the body rate
-  //uart_write(_uart, &br_ch, 1);               // for ESP8266                     // send zero at low speed, long zero
-  uart_write_bytes(UART_NUM_1, &br_ch, 1);      // for ESP32    // send zero at low speed, long zero
-  //uart_write(_uart, (char *)&dummy, 1);
-  //uart_wait_tx_empty(_uart);                  // for ESP8266   // We wait until the sending is completed. There is an error here in the uart.h library (esp8266 core 3.0.2), waiting is not enough for further uart_set_baudrate().
-  uart_wait_tx_done(UART_NUM_1,100);            // for ESP32      // We wait until the sending is completed. There is an error here in the uart.h library (esp8266 core 3.0.2), waiting is not enough for further uart_set_baudrate().
-  delayMicroseconds(90);                        // add a delay to the wait, otherwise the speed will switch before sending. With delay on d1-mini I got a perfect signal, break = 520us
-  uartSetBaudRate(_uart, BAUD_WORK);            // we return the working body rate
-  //uart_write(_uart, (char *)&data[0], len);             // for ESP8266   // send the main package
-  uart_write_bytes(UART_NUM_1, (char *)&data[0], len);    // for ESP32      // send the main package
-  //uart_write(_uart, (char *)raw_cmd_buf, sizeof(raw_cmd_buf));
-  //uart_wait_tx_empty(_uart);          // for ESP8266     // waiting for the sending to complete
-  uart_wait_tx_done(UART_NUM_1,100);    // for ESP32        // waiting for the sending to complete
+  uart_flush(port);
+
+  // Generate BusT4 break signal (~520 µs) using hardware TX line inversion.
+  // This is a pure ESP-IDF approach that works on ESP32 (Xtensa) and ESP32-C3 (RISC-V).
+  // While the UART is idle, TX is high (mark). Inverting it drives TX low — the break condition.
+  uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);
+  delayMicroseconds(520);                           // hold break for ~520 µs (10 bits @ 19200 baud)
+  uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE);
+  delayMicroseconds(10);                            // brief mark before first start bit
+
+  uart_write_bytes(port, (const char *)data, len);
+  uart_wait_tx_done(port, pdMS_TO_TICKS(100));
   delayMicroseconds(90);
-  //delayMicroseconds(150); //for ESP32
 
-
-  std::string pretty_cmd = format_hex_pretty((uint8_t*)&data[0], len);                    // to output the command to the log
-  ESP_LOGI(TAG,  "Sent: %S ", pretty_cmd.c_str() );
-
+  std::string pretty_cmd = format_hex_pretty(data, len);
+  ESP_LOGI(TAG, "Sent: %S", pretty_cmd.c_str());
 }
 
 // generating and sending inf commands from yaml configuration

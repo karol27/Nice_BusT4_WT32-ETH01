@@ -52,7 +52,7 @@ is an intelligent engine, this value is 1 (adr = 1).
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"           // to add Action
 #include "esphome/components/cover/cover.h"
-#include <HardwareSerial.h>
+#include "driver/uart.h"                       // ESP-IDF UART driver (compatible with ESP32 and ESP32-C3)
 #include "esphome/core/helpers.h"              // parse strings with built-in tools
 #include <queue>                               // for working with a queue
 // #include <string>
@@ -67,11 +67,8 @@ using namespace esphome::cover;
 //using esp8266::timeoutTemplate::oneShotMs;
 
 
-static const int _UART_NO=GPIO_NUM_1; /* uart number */
-//static const int _UART_NO=UART_NUM_1;
-static const int TX_PIN = 17;           /* pin Tx */
-static const int RX_PIN = 5;           /* pin Rx */
-static const uint32_t BAUD_BREAK = 9200; /* baudrate for a long pulse before the packet */
+// UART number and pins are now configurable via cover.py (set_uart_nr / set_tx_pin / set_rx_pin)
+// Defaults match the original WT32-ETH01 wiring; override in YAML for ESP32-C3.
 static const uint32_t BAUD_WORK = 19200; /* working baudrate */
 static const uint8_t START_CODE = 0x55; /*packet start byte */
 
@@ -434,6 +431,9 @@ class NiceBusT4 : public Component, public Cover {
     // void check_cmd();  
 
     void set_class_gate(uint8_t class_gate) { class_gate_ = class_gate; }
+    void set_uart_nr(uint8_t uart_nr) { _uart_nr = uart_nr; }
+    void set_tx_pin(int tx_pin) { _tx_pin = tx_pin; }
+    void set_rx_pin(int rx_pin) { _rx_pin = rx_pin; }
     
  /*   void set_update_interval(uint32_t update_interval) {  // drive status acquisition interval
       this->update_interval_ = update_interval;
@@ -468,8 +468,9 @@ class NiceBusT4 : public Component, public Cover {
 
   
     // uart variables
-    uint8_t _uart_nr;
-    uart_t* _uart = nullptr;
+    uint8_t _uart_nr{1};  // UART port number (1 = UART_NUM_1); configurable via set_uart_nr()
+    int _tx_pin{17};      // TX pin; configurable via set_tx_pin() — GPIO17 for WT32-ETH01
+    int _rx_pin{5};       // RX pin; configurable via set_rx_pin() — GPIO5  for WT32-ETH01
     uint16_t _max_opn = 0;  // maximum encoder or timer position
     uint16_t _pos_opn = 2048;  // encoder or timer opening position, not for all drives
     uint16_t _pos_cls = 0;  // encoder or timer close position, not for all drives

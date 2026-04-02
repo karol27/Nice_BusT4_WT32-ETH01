@@ -1,0 +1,55 @@
+# Nice BusT4 — ESP32-C3 SuperMini example
+# Tested target: Nice Robus 600 sliding gate motor
+#
+# Wiring (ESP32-C3 SuperMini):
+#   BusT4 pin 4 (Tx) → ESP32-C3 GPIO6 (RX_PIN)
+#   BusT4 pin 1 (Rx) → ESP32-C3 GPIO7 (TX_PIN)
+#   BusT4 pin 2 (GND) → ESP32-C3 GND
+#
+# GPIO20 / GPIO21 are reserved for USB-CDC on the SuperMini — do not use them.
+# GPIO9 is the BOOT button — avoid using it as output.
+# Use any free GPIO from the range 0–10, 18–19 for TX/RX.
+
+substitutions:
+  device_name: "nice-robus-600-bust4-c3"
+  device_name_friendly: "Nice Robus 600"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${device_name_friendly}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+  # USB-CDC logging (default on ESP32-C3 SuperMini)
+  hardware_uart: USB_SERIAL_JTAG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/csab77/Nice_BusT4_WT32-ETH01
+      ref: esp32-c3-support
+    components: [bus_t4]
+
+cover:
+  - platform: bus_t4
+    name: "Schiebetor"
+    id: my_nice_cover
+    # UART hardware — adjust pins to your wiring
+    uart_num: 1
+    tx_pin: 7   # BusT4 Rx (gate receives)
+    rx_pin: 6   # BusT4 Tx (gate sends)
