@@ -434,6 +434,7 @@ class NiceBusT4 : public Component, public Cover {
     void set_uart_nr(uint8_t uart_nr) { _uart_nr = uart_nr; }
     void set_tx_pin(int tx_pin) { _tx_pin = tx_pin; }
     void set_rx_pin(int rx_pin) { _rx_pin = rx_pin; }
+    void set_tx_inverted(bool inverted) { _tx_inverted = inverted; }
     
  /*   void set_update_interval(uint32_t update_interval) {  // drive status acquisition interval
       this->update_interval_ = update_interval;
@@ -468,9 +469,10 @@ class NiceBusT4 : public Component, public Cover {
 
   
     // uart variables
-    uint8_t _uart_nr{1};  // UART port number (1 = UART_NUM_1); configurable via set_uart_nr()
-    int _tx_pin{17};      // TX pin; configurable via set_tx_pin() — GPIO17 for WT32-ETH01
-    int _rx_pin{5};       // RX pin; configurable via set_rx_pin() — GPIO5  for WT32-ETH01
+    uint8_t _uart_nr{1};       // UART port number (1 = UART_NUM_1); configurable via set_uart_nr()
+    int _tx_pin{17};           // TX pin; configurable via set_tx_pin() — GPIO17 for WT32-ETH01
+    int _rx_pin{5};            // RX pin; configurable via set_rx_pin() — GPIO5  for WT32-ETH01
+    bool _tx_inverted{false};  // Invert TX signal (idle = LOW); needed when transceiver inverts the signal
     uint16_t _max_opn = 0;  // maximum encoder or timer position
     uint16_t _pos_opn = 2048;  // encoder or timer opening position, not for all drives
     uint16_t _pos_cls = 0;  // encoder or timer close position, not for all drives

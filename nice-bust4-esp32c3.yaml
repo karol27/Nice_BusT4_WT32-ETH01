@@ -51,5 +51,6 @@ cover:
     id: my_nice_cover
     # UART hardware — adjust pins to your wiring
     uart_num: 1
-    tx_pin: 7   # BusT4 Rx (gate receives)
-    rx_pin: 6   # BusT4 Tx (gate sends)
+    tx_pin: 7        # BusT4 Rx (gate receives)
+    rx_pin: 6        # BusT4 Tx (gate sends)
+    tx_inverted: true  # TX idle = LOW (0V); needed when transceiver inverts the signal

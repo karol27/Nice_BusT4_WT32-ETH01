@@ -79,6 +79,10 @@ void NiceBusT4::setup() {
   uart_param_config((uart_port_t)_uart_nr, &uart_config);
   uart_set_pin((uart_port_t)_uart_nr, _tx_pin, _rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   uart_driver_install((uart_port_t)_uart_nr, 256, 0, 0, NULL, 0);
+  if (_tx_inverted) {
+    uart_set_line_inverse((uart_port_t)_uart_nr, UART_SIGNAL_TXD_INV);
+    ESP_LOGI(TAG, "  TX inverted (idle = LOW)");
+  }
 }
 
 void NiceBusT4::loop() {
@@ -1115,10 +1119,23 @@ void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
 
   // Generate BusT4 break signal (~520 µs) using hardware TX line inversion.
   // This is a pure ESP-IDF approach that works on ESP32 (Xtensa) and ESP32-C3 (RISC-V).
-  // While the UART is idle, TX is high (mark). Inverting it drives TX low — the break condition.
-  uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);
-  delayMicroseconds(520);                           // hold break for ~520 µs (10 bits @ 19200 baud)
-  uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE);
+  //
+  // Without TX inversion (_tx_inverted = false):
+  //   Idle = HIGH (3.3V). Inverting drives TX LOW — the break condition on the bus.
+  //
+  // With TX inversion (_tx_inverted = true):
+  //   Idle = LOW (0V) due to permanent UART_SIGNAL_TXD_INV set in setup().
+  //   The bus transceiver inverts again, so bus idle = HIGH.
+  //   To produce a break (bus LOW), we need ESP TX HIGH → disable inversion temporarily.
+  if (_tx_inverted) {
+    uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE); // pin HIGH → transceiver → bus LOW (break)
+    delayMicroseconds(520);
+    uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);     // restore → pin LOW → bus HIGH (idle)
+  } else {
+    uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);     // pin LOW (break)
+    delayMicroseconds(520);
+    uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE); // pin HIGH (idle)
+  }
   delayMicroseconds(10);                            // brief mark before first start bit
 
   uart_write_bytes(port, (const char *)data, len);
