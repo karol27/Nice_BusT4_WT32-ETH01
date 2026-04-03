@@ -1,7 +1,9 @@
 #include "nice-bust4.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"  // to use auxiliary functions for working with strings
-#include "driver/uart.h"           // functions for ESP32 board type 
+#include "driver/uart.h"           // functions for ESP32 board type
+#include "esp_rom_gpio.h"          // esp_rom_gpio_connect_out_signal — reliable GPIO matrix inversion
+#include "soc/uart_periph.h"       // uart_periph_signal — UART TX/RX signal indices for GPIO matrix
 
 namespace esphome {
 namespace bus_t4 {
@@ -80,8 +82,13 @@ void NiceBusT4::setup() {
   uart_set_pin((uart_port_t)_uart_nr, _tx_pin, _rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
   uart_driver_install((uart_port_t)_uart_nr, 256, 0, 0, NULL, 0);
   if (_tx_inverted) {
-    uart_set_line_inverse((uart_port_t)_uart_nr, UART_SIGNAL_TXD_INV);
-    ESP_LOGI(TAG, "  TX inverted (idle = LOW)");
+    // uart_set_line_inverse() is unreliable on ESP32-C3 because uart_set_pin() configures
+    // the GPIO matrix without inversion and may override the UART peripheral's inversion bit.
+    // Directly (re-)routing the UART TX signal through the GPIO matrix with out_inv=true is
+    // the reliable approach — this is also what ESPHome uses internally for inverted UART pins.
+    uint32_t tx_sig = uart_periph_signal[_uart_nr].tx_sig;
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true /*invert*/, false);
+    ESP_LOGI(TAG, "  TX inverted via GPIO matrix (idle = LOW, sig=%u)", tx_sig);
   }
 }
 
@@ -1117,24 +1124,26 @@ void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
 
   uart_flush(port);
 
-  // Generate BusT4 break signal (~520 µs) using hardware TX line inversion.
-  // This is a pure ESP-IDF approach that works on ESP32 (Xtensa) and ESP32-C3 (RISC-V).
+  // Generate BusT4 break signal (~520 µs) by temporarily toggling GPIO matrix inversion.
+  // Using esp_rom_gpio_connect_out_signal() is more reliable than uart_set_line_inverse()
+  // on ESP32-C3, where the GPIO matrix routing set by uart_set_pin() can override the
+  // UART peripheral's inversion register.
   //
   // Without TX inversion (_tx_inverted = false):
-  //   Idle = HIGH (3.3V). Inverting drives TX LOW — the break condition on the bus.
+  //   Idle = HIGH (3.3V). Enabling inversion drives TX LOW — the break condition on the bus.
   //
-  // With TX inversion (_tx_inverted = true):
-  //   Idle = LOW (0V) due to permanent UART_SIGNAL_TXD_INV set in setup().
-  //   The bus transceiver inverts again, so bus idle = HIGH.
-  //   To produce a break (bus LOW), we need ESP TX HIGH → disable inversion temporarily.
+  // With TX inversion (_tx_inverted = true, 2N7000 circuit):
+  //   Idle = LOW (0V), 2N7000 OFF, bus = HIGH.
+  //   Break: disable inversion → TX HIGH → 2N7000 ON → bus LOW for 520 µs.
+  uint32_t tx_sig = uart_periph_signal[_uart_nr].tx_sig;
   if (_tx_inverted) {
-    uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE); // pin HIGH → transceiver → bus LOW (break)
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, false, false); // TX HIGH → 2N7000 ON → bus LOW (break)
     delayMicroseconds(520);
-    uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);     // restore → pin LOW → bus HIGH (idle)
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true,  false); // TX LOW  → 2N7000 OFF → bus HIGH (idle)
   } else {
-    uart_set_line_inverse(port, UART_SIGNAL_TXD_INV);     // pin LOW (break)
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true,  false); // TX LOW (break)
     delayMicroseconds(520);
-    uart_set_line_inverse(port, UART_SIGNAL_INV_DISABLE); // pin HIGH (idle)
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, false, false); // TX HIGH (idle)
   }
   delayMicroseconds(10);                            // brief mark before first start bit
 
