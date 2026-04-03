@@ -3,12 +3,23 @@
 #include "esphome/core/helpers.h"  // to use auxiliary functions for working with strings
 #include "driver/uart.h"           // functions for ESP32 board type
 #include "esp_rom_gpio.h"          // esp_rom_gpio_connect_out_signal — reliable GPIO matrix inversion
-#include "soc/uart_periph.h"       // uart_periph_signal — UART TX/RX signal indices for GPIO matrix
+#include "soc/gpio_sig_map.h"      // U0TXD_OUT_IDX, U1TXD_OUT_IDX — UART TX signal indices for GPIO matrix
 
 namespace esphome {
 namespace bus_t4 {
 
 static const char *TAG = "bus_t4.cover";
+
+// UART TX GPIO-matrix signal indices — indexed by uart_num.
+// Using gpio_sig_map.h constants avoids uart_signal_conn_t struct layout
+// differences between ESP-IDF 4.x (tx_sig) and 5.x (pins[0].signal).
+static const uint32_t UART_TX_SIG[] = {
+    U0TXD_OUT_IDX,  // UART0
+    U1TXD_OUT_IDX,  // UART1
+#ifdef U2TXD_OUT_IDX
+    U2TXD_OUT_IDX,  // UART2 (ESP32 only)
+#endif
+};
 
 using namespace esphome::cover;
 
@@ -86,7 +97,7 @@ void NiceBusT4::setup() {
     // the GPIO matrix without inversion and may override the UART peripheral's inversion bit.
     // Directly (re-)routing the UART TX signal through the GPIO matrix with out_inv=true is
     // the reliable approach — this is also what ESPHome uses internally for inverted UART pins.
-    uint32_t tx_sig = uart_periph_signal[_uart_nr].tx_sig;
+    uint32_t tx_sig = UART_TX_SIG[_uart_nr];
     esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true /*invert*/, false);
     ESP_LOGI(TAG, "  TX inverted via GPIO matrix (idle = LOW, sig=%u)", tx_sig);
   }
@@ -1135,7 +1146,7 @@ void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
   // With TX inversion (_tx_inverted = true, 2N7000 circuit):
   //   Idle = LOW (0V), 2N7000 OFF, bus = HIGH.
   //   Break: disable inversion → TX HIGH → 2N7000 ON → bus LOW for 520 µs.
-  uint32_t tx_sig = uart_periph_signal[_uart_nr].tx_sig;
+  uint32_t tx_sig = UART_TX_SIG[_uart_nr];
   if (_tx_inverted) {
     esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, false, false); // TX HIGH → 2N7000 ON → bus LOW (break)
     delayMicroseconds(520);
