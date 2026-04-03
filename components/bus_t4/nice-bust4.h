@@ -416,7 +416,8 @@ class NiceBusT4 : public Component, public Cover {
     // NiceBusT4() : pause_time_sensor(nullptr) {}  // Domyślny konstruktor
     // NiceBusT4(text_sensor::TextSensor *sensor) : pause_time_sensor(sensor) {}  // Konstruktor przyjmujący wskaźnik do text_sensor
     
-    bool init_ok = false;  // drive detection when turned on
+    bool init_ok = false;           // drive detection when turned on
+    bool init_device_done = false;  // init_device() already called — do not repeat even if class_gate_ / manufacturer_ are still unknown
     bool is_walky = false; // the position request command is different for walky
     bool is_robus = false; // for Robus there is no need to periodically request a position
     
