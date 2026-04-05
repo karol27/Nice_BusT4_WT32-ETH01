@@ -506,7 +506,23 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
         case OP_BLOCK:
           this->op_block_flag = data[14];
           ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");
-          break; 
+          break;
+
+        case SLOW_ON:
+          this->slow_on_flag = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow mode (Schleichgang): %S ", slow_on_flag ? "Yes" : "No");
+          break;
+
+        case SPEED_SLW_OPN:
+          this->speed_slw_opn = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow opening speed: %u", speed_slw_opn);
+          break;
+
+        case SPEED_SLW_CLS:
+          this->speed_slw_cls = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow closing speed: %u", speed_slw_cls);
+          break;
+
       } // switch cmd_submnu
     } // if completed responses to GET requests received without errors from the drive
 
@@ -586,8 +602,21 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
          break;
 				 
 				case OP_BLOCK:
-          tx_buffer_.push(gen_inf_cmd(FOR_CU, OP_BLOCK, GET)); // Standby
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, OP_BLOCK, GET));
           break;
+
+        case SLOW_ON:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SLOW_ON, GET));
+          break;
+
+        case SPEED_SLW_OPN:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SPEED_SLW_OPN, GET));
+          break;
+
+        case SPEED_SLW_CLS:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SPEED_SLW_CLS, GET));
+          break;
+
       }// switch cmd_submnu
     }// if responses to SET requests received without errors from the drive
 
@@ -1236,7 +1265,12 @@ void NiceBusT4::init_device(const uint8_t addr1, const uint8_t addr2, const uint
 
     //other settings/informations
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, P_COUNT, GET, 0x00)); // Number of cycles
-		tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Stand by  
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Operator block
+
+    // slow mode (Schleichgang)
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SLOW_ON, GET, 0x00));      // Slow mode active
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_OPN, GET, 0x00)); // Slow opening speed
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_CLS, GET, 0x00)); // Slow closing speed
   }
   if (device == FOR_OXI) {
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, FOR_ALL, PRD, GET, 0x00)); // product request

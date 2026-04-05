@@ -179,13 +179,111 @@ button:
 
 
 
+  - platform: template
+    name: Partial opening 2
+    id: p_opn2
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN2);
+
+  - platform: template
+    name: Partial opening 3
+    id: p_opn3
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN3);
+
+  - platform: template
+    name: Partial opening 4
+    id: p_opn4
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN4);
+
+  - platform: template
+    name: Partial opening 5 (Priority SBS)
+    id: p_opn5
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN5);
+
+  - platform: template
+    name: Partial opening 6 (Open and block)
+    id: p_opn6
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN6);
+
+  - platform: template
+    name: Lock
+    id: lock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LOCK);
+
+  - platform: template
+    name: Unlock
+    id: unlock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLOCK);
+
+  - platform: template
+    name: Close and lock
+    id: cls_lock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::CLS_LOCK);
+
+  - platform: template
+    name: Unlock and open
+    id: unlk_opn_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLK_OPN);
+
+  - platform: template
+    name: Unlock and close
+    id: unlck_cls_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLCK_CLS);
+
+  - platform: template
+    name: Light timer
+    id: light_timer_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LIGHT_TIMER);
+
+  - platform: template
+    name: Light on/off
+    id: light_sw_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LIGHT_SW);
+
+  - platform: template
+    name: Auto-opening ON
+    id: auto_on_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::AUTO_ON);
+
+  - platform: template
+    name: Auto-opening OFF
+    id: auto_off_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::AUTO_OFF);
+
   # - platform: template
   #   name: test_check_cmd
   #   id: p_opn12
   #   on_press:
   #     lambda: |-
   #        my_nice_cover -> NiceBusT4::check_cmd();
-                      
+
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::STOP);
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::OPEN);
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::CLOSE);
@@ -404,6 +502,25 @@ switch:
       lambda: |-
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "a9", "00", true, "00");
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "99", "00", true, "01");
+
+  - platform: template
+    name: "Slow mode (Schleichgang)"
+    id: slow_mode
+    restore_mode: DISABLED
+    lambda: |-
+      if (my_nice_cover -> NiceBusT4::slow_on_flag) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "a9", "00", true, "01");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "99", "00", true, "01");
+    turn_off_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "a9", "00", true, "00");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "99", "00", true, "01");
 
 # cover:
 cover:
@@ -634,7 +751,51 @@ number:
         - delay: 1s  
         - lambda: |-
             id(pause_time_number).publish_state(my_nice_cover -> NiceBusT4::pause_time); //to be sure that value is updated
-        - component.update: pause_time_text_sensor  # update text_sensor immedietely      
+        - component.update: pause_time_text_sensor  # update text_sensor immedietely
+
+# Slow speed open (SPEED_SLW_OPN = 0x45), default 22, range 1-100
+  - platform: template
+    name: Slow opening speed
+    id: slow_speed_open_number
+    min_value: 1
+    max_value: 100
+    step: 1
+    icon: 'mdi:speedometer-slow'
+    mode: 'box'
+    lambda: |-
+      return (my_nice_cover -> NiceBusT4::speed_slw_opn);
+    set_action:
+      then:
+        - lambda: |-
+            char hex_val[3];
+            snprintf(hex_val, sizeof(hex_val), "%02X", (int)x);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "45", "a9", "00", true, hex_val);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "45", "99", "00", true, "01");
+        - delay: 1s
+        - lambda: |-
+            id(slow_speed_open_number).publish_state(my_nice_cover -> NiceBusT4::speed_slw_opn);
+
+# Slow speed close (SPEED_SLW_CLS = 0x46), default 22, range 1-100
+  - platform: template
+    name: Slow closing speed
+    id: slow_speed_close_number
+    min_value: 1
+    max_value: 100
+    step: 1
+    icon: 'mdi:speedometer-slow'
+    mode: 'box'
+    lambda: |-
+      return (my_nice_cover -> NiceBusT4::speed_slw_cls);
+    set_action:
+      then:
+        - lambda: |-
+            char hex_val[3];
+            snprintf(hex_val, sizeof(hex_val), "%02X", (int)x);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "46", "a9", "00", true, hex_val);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "46", "99", "00", true, "01");
+        - delay: 1s
+        - lambda: |-
+            id(slow_speed_close_number).publish_state(my_nice_cover -> NiceBusT4::speed_slw_cls);
 
 # SELECT ------------------------------------------------------------------------------------------------------------------
 select:

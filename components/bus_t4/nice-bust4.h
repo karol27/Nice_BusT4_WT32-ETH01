@@ -387,7 +387,8 @@ class NiceBusT4 : public Component, public Cover {
     uint8_t fault_list_mode;    // l2L8 - list of faults
 
     // other settings
-    bool op_block_flag; 
+    bool op_block_flag;
+    bool slow_on_flag;          // Slow mode (Schleichgang) active
 
     //additional parameters values
     uint8_t current_position;
