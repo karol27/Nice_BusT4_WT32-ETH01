@@ -792,6 +792,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             this->current_operation = COVER_OPERATION_IDLE;
             request_position();
             break;
+          case 0x11:  // 0x91 - obstacle detected: motor stops and reverses automatically
+            ESP_LOGW(TAG, "Obstacle detected");
+            this->current_operation = COVER_OPERATION_IDLE;
+            request_position();
+            break;
           default:
             ESP_LOGI(TAG, "Unknown command: %X", data[11]);
         }  // switch sub_run_cmd1
