@@ -451,6 +451,7 @@ class NiceBusT4 : public Component, public Cover {
     void update_position(uint16_t newpos);  // Update current actuator position
 
     uint32_t last_position_time{0};  // Time of last update of current position
+    uint32_t last_tx_time_{0};       // Time of last packet sent
     uint32_t update_interval_{500};
     uint32_t last_update_{0};
     uint32_t last_uart_byte_{0};

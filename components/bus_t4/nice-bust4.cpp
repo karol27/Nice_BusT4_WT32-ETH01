@@ -55,14 +55,15 @@ void NiceBusT4::control(const CoverCall &call) {
 
   } else if (call.get_position().has_value()) {
     float newpos = *call.get_position();
-    if (newpos != position) {
-      if (newpos == COVER_OPEN) {
-        if (current_operation != COVER_OPERATION_OPENING) send_cmd(OPEN);
+    if (newpos == COVER_OPEN) {
+      // Always send OPEN regardless of internal state — avoids desync issues
+      if (current_operation != COVER_OPERATION_OPENING) send_cmd(OPEN);
 
-      } else if (newpos == COVER_CLOSED) {
-        if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
+    } else if (newpos == COVER_CLOSED) {
+      // Always send CLOSE regardless of internal state
+      if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
 
-      } else { // Arbitrary position
+    } else if (newpos != position) { // Arbitrary position — only if different
         position_hook_value = (_pos_opn - _pos_cls) * newpos + _pos_cls;
         ESP_LOGI(TAG, "Required drive position: %d", position_hook_value);
         if (position_hook_value > _pos_usl) {
@@ -72,7 +73,6 @@ void NiceBusT4::control(const CoverCall &call) {
           position_hook_type = STOP_DOWN;
           if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
         }
-      }
     }
   }
 }
@@ -122,12 +122,15 @@ void NiceBusT4::loop() {
   }  // if  every minute
 
 
-  // allow sending every 100 ms
+  // TX interval: 400ms during discovery (init_ok=false) so the motor's WHO
+  // response (~200ms after broadcast) arrives before PRD is transmitted.
+  // Sending PRD 200ms after WHO causes a collision that loses the motor response.
+  // 200ms is sufficient once the motor is found and all queries are addressed.
   uint32_t now = millis();
-  if (now - this->last_uart_byte_ > 100) {
+  uint32_t tx_interval = this->init_ok ? 200 : 400;
+  if (now - this->last_tx_time_ > tx_interval) {
     this->ready_to_tx_ = true;
-    this->last_uart_byte_ = now;
-  } 
+  }
 
 
   uint8_t c;
@@ -141,18 +144,21 @@ void NiceBusT4::loop() {
       this->send_array_cmd(this->tx_buffer_.front()); // send the first command in the queue
       this->tx_buffer_.pop();
       this->ready_to_tx_ = false;
+      this->last_tx_time_ = millis();
     }
   }
 
-  // Poll of current actuator position
+  // ROBUS motors send spontaneous RSP status packets during movement — no polling needed.
+  // Other motors (Walky, DPRO, etc.) require active CUR_POS polling.
   if (!is_robus) {
-  
-  now = millis();
-  if (init_ok && (current_operation != COVER_OPERATION_IDLE) && (now - last_position_time > POSITION_UPDATE_INTERVAL)) {
-    last_position_time = now;
-    request_position();
-  } 
-  } // not robus
+    now = millis();
+    if (init_ok && (current_operation != COVER_OPERATION_IDLE)
+        && (now - last_position_time > POSITION_UPDATE_INTERVAL)
+        && (now - last_uart_byte_ > 300)) {
+      last_position_time = now;
+      request_position();
+    }
+  }
 
 } //loop
 
@@ -635,31 +641,52 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           else if ((this->addr_to[0] == data[4]) && (this->addr_to[1] == data[5])) { // if the package is from the drive controller
 //            ESP_LOGCONFIG(TAG, "  Drive unit: %S ", str.c_str());
             this->product_.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
-            std::vector<uint8_t> wla1 = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57}; // to understand that Walky drive
-            std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00}; // to understand that the ROBUSHSR10 drive
+            std::vector<uint8_t> wla1       = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
+            std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
+            std::vector<uint8_t> ROBUSR10   = {0x52,0x4F,0x42,0x55,0x53,0x52,0x31,0x30,0x00};
             if (this->product_ == wla1) {
               this->is_walky = true;
-         //     ESP_LOGCONFIG(TAG, "  WALKY drive!: %S ", str.c_str());
-                                        }
-            if (this->product_ == ROBUSHSR10) {
+            }
+            if (this->product_ == ROBUSHSR10 || this->product_ == ROBUSR10) {
               this->is_robus = true;
-          //    ESP_LOGCONFIG(TAG, "  Drive unit ROBUS!: %S ", str.c_str());
-                                        }
+              ESP_LOGI(TAG, "ROBUS drive detected — position polling disabled");
+            }
 
           } else if (!this->init_ok) {
             // WHO broadcast responses are often lost due to RS485 bus collisions when multiple
             // devices reply simultaneously. Fall back to discovering the drive unit from its
             // PRD response: the first PRD reply that is not from the OXI receiver is treated
             // as the drive controller.
-            this->addr_to[0] = data[4];
-            this->addr_to[1] = data[5];
-            this->init_ok = true;
-            this->product_.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
-            std::vector<uint8_t> wla1 = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
-            std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
-            if (this->product_ == wla1)    this->is_walky = true;
-            if (this->product_ == ROBUSHSR10) this->is_robus = true;
-            ESP_LOGI(TAG, "Drive unit discovered via PRD fallback: addr %02X:%02X", data[4], data[5]);
+            std::vector<uint8_t> prd_data(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
+
+            // Check if this is an OXI receiver by looking for "OXI" in the product name
+            std::string prd_str(prd_data.begin(), prd_data.end());
+            bool is_oxi_prd = (prd_str.find("OXI") != std::string::npos);
+
+            if (is_oxi_prd) {
+              // OXI receiver responded to PRD before the motor — store address only.
+              // Do NOT queue OXI init queries here: that would flood the bus and block
+              // the motor's PRD response which arrives ~100ms after the broadcast.
+              // OXI init will happen via the normal WHO path once the motor is found.
+              this->addr_oxi[0] = data[4];
+              this->addr_oxi[1] = data[5];
+              ESP_LOGI(TAG, "OXI receiver discovered via PRD fallback: addr %02X:%02X, product: %s", data[4], data[5], prd_str.c_str());
+            } else {
+              // This is the drive controller
+              this->addr_to[0] = data[4];
+              this->addr_to[1] = data[5];
+              this->init_ok = true;
+              this->product_ = prd_data;
+              std::vector<uint8_t> wla1       = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
+              std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
+              std::vector<uint8_t> ROBUSR10   = {0x52,0x4F,0x42,0x55,0x53,0x52,0x31,0x30,0x00};
+              if (this->product_ == wla1) this->is_walky = true;
+              if (this->product_ == ROBUSHSR10 || this->product_ == ROBUSR10) {
+                this->is_robus = true;
+                ESP_LOGI(TAG, "ROBUS drive detected — position polling disabled");
+              }
+              ESP_LOGI(TAG, "Drive unit discovered via PRD fallback: addr %02X:%02X, product: %s", data[4], data[5], prd_str.c_str());
+            }
           }
           break;
         case HWR:
@@ -697,7 +724,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             else if (data[14] == 0x0A) { // receiver
               this->addr_oxi[0] = data[4];
               this->addr_oxi[1] = data[5];
-              init_device(data[4], data[5], data[14]);
+              // Only init OXI after the motor is found — otherwise the 4 OXI queries
+              // flood the bus and block the motor's PRD response.
+              if (this->init_ok) {
+                init_device(data[4], data[5], data[14]);
+              }
             }
           }
           break;
@@ -1266,11 +1297,14 @@ void NiceBusT4::init_device(const uint8_t addr1, const uint8_t addr2, const uint
     //other settings/informations
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, P_COUNT, GET, 0x00)); // Number of cycles
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Operator block
-
-    // slow mode (Schleichgang)
-    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SLOW_ON, GET, 0x00));      // Slow mode active
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SLOW_ON, GET, 0x00));        // Slow mode on/off
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_OPN, GET, 0x00)); // Slow opening speed
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_CLS, GET, 0x00)); // Slow closing speed
+
+    // If OXI was already discovered (via WHO before motor was found), init it now.
+    if (this->addr_oxi[0] != 0x00 || this->addr_oxi[1] != 0x00) {
+      init_device(this->addr_oxi[0], this->addr_oxi[1], FOR_OXI);
+    }
   }
   if (device == FOR_OXI) {
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, FOR_ALL, PRD, GET, 0x00)); // product request
@@ -1301,6 +1335,14 @@ void NiceBusT4::update_position(uint16_t newpos) {
   position = (_pos_usl - _pos_cls) * 1.0f / (_pos_opn - _pos_cls);
   ESP_LOGI(TAG, "Conditional gate position: %d, position at %%: %.3f", newpos, position);
   if (position < CLOSED_POSITION_THRESHOLD) position = COVER_CLOSED;
+  if (position > COVER_OPEN) {
+    // Encoder exceeded the stored _pos_opn (default 2048 may be too small).
+    // Update _pos_opn to the current encoder value and treat gate as fully open.
+    _pos_opn = _pos_usl;
+    position = COVER_OPEN;
+    current_operation = COVER_OPERATION_IDLE;
+    ESP_LOGI(TAG, "Gate reached open end — updating _pos_opn to %d", _pos_opn);
+  }
   publish_state_if_changed();  // publish the status
   
   if ((position_hook_type == STOP_UP && _pos_usl >= position_hook_value) || (position_hook_type == STOP_DOWN && _pos_usl <= position_hook_value)) {
