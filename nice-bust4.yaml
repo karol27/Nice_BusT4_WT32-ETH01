@@ -509,7 +509,7 @@ switch:
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "99", "00", true, "01");
 
   - platform: template
-    name: "Slow mode (Schleichgang)"
+    name: "Slow mode"
     id: slow_mode
     restore_mode: DISABLED
     lambda: |-
