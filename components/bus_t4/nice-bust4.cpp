@@ -1108,7 +1108,7 @@ void NiceBusT4::dump_config() {    //  add information about the connected contr
   ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %u ", motor_force_open);
   ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %u ", motor_force_close);
   ESP_LOGCONFIG(TAG, "  Number of cycles: %u ", p_count);
-	ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");  
+  ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");  
 
 }
 
