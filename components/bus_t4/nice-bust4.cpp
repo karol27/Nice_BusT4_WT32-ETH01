@@ -1,12 +1,25 @@
 #include "nice-bust4.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"  // to use auxiliary functions for working with strings
-#include "driver/uart.h"           // functions for ESP32 board type 
+#include "driver/uart.h"           // functions for ESP32 board type
+#include "esp_rom_gpio.h"          // esp_rom_gpio_connect_out_signal — reliable GPIO matrix inversion
+#include "soc/gpio_sig_map.h"      // U0TXD_OUT_IDX, U1TXD_OUT_IDX — UART TX signal indices for GPIO matrix
 
 namespace esphome {
 namespace bus_t4 {
 
 static const char *TAG = "bus_t4.cover";
+
+// UART TX GPIO-matrix signal indices — indexed by uart_num.
+// Using gpio_sig_map.h constants avoids uart_signal_conn_t struct layout
+// differences between ESP-IDF 4.x (tx_sig) and 5.x (pins[0].signal).
+static const uint32_t UART_TX_SIG[] = {
+    U0TXD_OUT_IDX,  // UART0
+    U1TXD_OUT_IDX,  // UART1
+#ifdef U2TXD_OUT_IDX
+    U2TXD_OUT_IDX,  // UART2 (ESP32 only)
+#endif
+};
 
 using namespace esphome::cover;
 
@@ -42,14 +55,15 @@ void NiceBusT4::control(const CoverCall &call) {
 
   } else if (call.get_position().has_value()) {
     float newpos = *call.get_position();
-    if (newpos != position) {
-      if (newpos == COVER_OPEN) {
-        if (current_operation != COVER_OPERATION_OPENING) send_cmd(OPEN);
+    if (newpos == COVER_OPEN) {
+      // Always send OPEN regardless of internal state — avoids desync issues
+      if (current_operation != COVER_OPERATION_OPENING) send_cmd(OPEN);
 
-      } else if (newpos == COVER_CLOSED) {
-        if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
+    } else if (newpos == COVER_CLOSED) {
+      // Always send CLOSE regardless of internal state
+      if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
 
-      } else { // Arbitrary position
+    } else if (newpos != position) { // Arbitrary position — only if different
         position_hook_value = (_pos_opn - _pos_cls) * newpos + _pos_cls;
         ESP_LOGI(TAG, "Required drive position: %d", position_hook_value);
         if (position_hook_value > _pos_usl) {
@@ -59,28 +73,34 @@ void NiceBusT4::control(const CoverCall &call) {
           position_hook_type = STOP_DOWN;
           if (current_operation != COVER_OPERATION_CLOSING) send_cmd(CLOSE);
         }
-      }
     }
   }
 }
 
 void NiceBusT4::setup() {
+  ESP_LOGI(TAG, "setup() UART%d TX=%d RX=%d", _uart_nr, _tx_pin, _rx_pin);
 
-
- // _uart =  uart_init(_UART_NO, BAUD_WORK, SERIAL_8N1, SERIAL_6E2, TX_P, 256, false); //for ESP8266
-  _uart =  uartBegin(_UART_NO, BAUD_WORK, SERIAL_8N1, RX_PIN, TX_PIN, 256, 256, false, 112); //for WT32
-  // who's online?
-//  this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, WHO, GET, 0x00));
-
-  // ESP_LOGD("setup", "Wywołanie setup()");
-  // if (this->pause_time_sensor == nullptr) {
-    // // Użycie operatora & do uzyskania wskaźnika do id(pause_time_sensor)
-    // this->pause_time_sensor = &id(pause_time_sensor);
-    // ESP_LOGD("setup", "pause_time_sensor został przypisany w setup: %p", this->pause_time_sensor);
-  // } else {
-    // ESP_LOGW("setup", "pause_time_sensor już został przypisany");
-  // }
-
+  // Use pure ESP-IDF UART API — compatible with ESP32 (Xtensa) and ESP32-C3 (RISC-V)
+  uart_config_t uart_config = {
+      .baud_rate  = BAUD_WORK,
+      .data_bits  = UART_DATA_8_BITS,
+      .parity     = UART_PARITY_DISABLE,
+      .stop_bits  = UART_STOP_BITS_1,
+      .flow_ctrl  = UART_HW_FLOWCTRL_DISABLE,
+      .source_clk = UART_SCLK_DEFAULT,
+  };
+  uart_param_config((uart_port_t)_uart_nr, &uart_config);
+  uart_set_pin((uart_port_t)_uart_nr, _tx_pin, _rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+  uart_driver_install((uart_port_t)_uart_nr, 256, 0, 0, NULL, 0);
+  if (_tx_inverted) {
+    // uart_set_line_inverse() is unreliable on ESP32-C3 because uart_set_pin() configures
+    // the GPIO matrix without inversion and may override the UART peripheral's inversion bit.
+    // Directly (re-)routing the UART TX signal through the GPIO matrix with out_inv=true is
+    // the reliable approach — this is also what ESPHome uses internally for inverted UART pins.
+    uint32_t tx_sig = UART_TX_SIG[_uart_nr];
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true /*invert*/, false);
+    ESP_LOGI(TAG, "  TX inverted via GPIO matrix (idle = LOW, sig=%u)", tx_sig);
+  }
 }
 
 void NiceBusT4::loop() {
@@ -93,32 +113,28 @@ void NiceBusT4::loop() {
         this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, WHO, GET, 0x00));
         ESP_LOGI(TAG, "  Product request");
         this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, PRD, GET, 0x00)); //product request
-      } else if (this->class_gate_ == 0x55) {
-        ESP_LOGI(TAG, "  Initialize device - class_gate == 0x55");
-        init_device(this->addr_to[0], this->addr_to[1], 0x04);  
-        // this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, WHO, GET, 0x00));
-        // this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, PRD, GET, 0x00)); //product request
-      } else if (this->manufacturer_ == unknown)  {
-        ESP_LOGI(TAG, "  Initialize device - manufacturer");
-        init_device(this->addr_to[0], this->addr_to[1], 0x04);  
-        // this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, WHO, GET, 0x00));
-        // this->tx_buffer_.push(gen_inf_cmd(0x00, 0xff, FOR_ALL, PRD, GET, 0x00)); //product request
+      } else if (!this->init_device_done) {
+        ESP_LOGI(TAG, "  Initialize device - querying motor settings");
+        this->init_device_done = true;
+        init_device(this->addr_to[0], this->addr_to[1], 0x04);
       }
       this->last_update_ = millis();
   }  // if  every minute
 
 
-  // allow sending every 100 ms
+  // TX interval: 400ms during discovery (init_ok=false) so the motor's WHO
+  // response (~200ms after broadcast) arrives before PRD is transmitted.
+  // Sending PRD 200ms after WHO causes a collision that loses the motor response.
+  // 200ms is sufficient once the motor is found and all queries are addressed.
   uint32_t now = millis();
-  if (now - this->last_uart_byte_ > 100) {
+  uint32_t tx_interval = this->init_ok ? 200 : 400;
+  if (now - this->last_tx_time_ > tx_interval) {
     this->ready_to_tx_ = true;
-    this->last_uart_byte_ = now;
-  } 
+  }
 
 
-  while (uartAvailable(_uart) > 0) {
-    //uint8_t c = (uint8_t)uart_Read(_uart);                // read the byte for ESP8266
-    uint8_t c = (uint8_t)uartRead(_uart);                // read the byte for ESP32
+  uint8_t c;
+  while (uart_read_bytes((uart_port_t)_uart_nr, &c, 1, 0) > 0) {
     this->handle_char_(c);                                     // send the byte for processing
     this->last_uart_byte_ = now;
   } //while
@@ -128,18 +144,21 @@ void NiceBusT4::loop() {
       this->send_array_cmd(this->tx_buffer_.front()); // send the first command in the queue
       this->tx_buffer_.pop();
       this->ready_to_tx_ = false;
+      this->last_tx_time_ = millis();
     }
   }
 
-  // Poll of current actuator position
+  // ROBUS motors send spontaneous RSP status packets during movement — no polling needed.
+  // Other motors (Walky, DPRO, etc.) require active CUR_POS polling.
   if (!is_robus) {
-  
-  now = millis();
-  if (init_ok && (current_operation != COVER_OPERATION_IDLE) && (now - last_position_time > POSITION_UPDATE_INTERVAL)) {
-    last_position_time = now;
-    request_position();
-  } 
-  } // not robus
+    now = millis();
+    if (init_ok && (current_operation != COVER_OPERATION_IDLE)
+        && (now - last_position_time > POSITION_UPDATE_INTERVAL)
+        && (now - last_uart_byte_ > 300)) {
+      last_position_time = now;
+      request_position();
+    }
+  }
 
 } //loop
 
@@ -493,7 +512,23 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
         case OP_BLOCK:
           this->op_block_flag = data[14];
           ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");
-          break; 
+          break;
+
+        case SLOW_ON:
+          this->slow_on_flag = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow mode (Schleichgang): %S ", slow_on_flag ? "Yes" : "No");
+          break;
+
+        case SPEED_SLW_OPN:
+          this->speed_slw_opn = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow opening speed: %u", speed_slw_opn);
+          break;
+
+        case SPEED_SLW_CLS:
+          this->speed_slw_cls = data[14];
+          ESP_LOGCONFIG(TAG, "  Slow closing speed: %u", speed_slw_cls);
+          break;
+
       } // switch cmd_submnu
     } // if completed responses to GET requests received without errors from the drive
 
@@ -573,8 +608,21 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
          break;
 				 
 				case OP_BLOCK:
-          tx_buffer_.push(gen_inf_cmd(FOR_CU, OP_BLOCK, GET)); // Standby
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, OP_BLOCK, GET));
           break;
+
+        case SLOW_ON:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SLOW_ON, GET));
+          break;
+
+        case SPEED_SLW_OPN:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SPEED_SLW_OPN, GET));
+          break;
+
+        case SPEED_SLW_CLS:
+          tx_buffer_.push(gen_inf_cmd(FOR_CU, SPEED_SLW_CLS, GET));
+          break;
+
       }// switch cmd_submnu
     }// if responses to SET requests received without errors from the drive
 
@@ -593,17 +641,52 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           else if ((this->addr_to[0] == data[4]) && (this->addr_to[1] == data[5])) { // if the package is from the drive controller
 //            ESP_LOGCONFIG(TAG, "  Drive unit: %S ", str.c_str());
             this->product_.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
-            std::vector<uint8_t> wla1 = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57}; // to understand that Walky drive
-            std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00}; // to understand that the ROBUSHSR10 drive
-            if (this->product_ == wla1) { 
+            std::vector<uint8_t> wla1       = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
+            std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
+            std::vector<uint8_t> ROBUSR10   = {0x52,0x4F,0x42,0x55,0x53,0x52,0x31,0x30,0x00};
+            if (this->product_ == wla1) {
               this->is_walky = true;
-         //     ESP_LOGCONFIG(TAG, "  WALKY drive!: %S ", str.c_str());
-                                        }
-            if (this->product_ == ROBUSHSR10) { 
+            }
+            if (this->product_ == ROBUSHSR10 || this->product_ == ROBUSR10) {
               this->is_robus = true;
-          //    ESP_LOGCONFIG(TAG, "  Drive unit ROBUS!: %S ", str.c_str());
-                                        }     
+              ESP_LOGI(TAG, "ROBUS drive detected — position polling disabled");
+            }
 
+          } else if (!this->init_ok) {
+            // WHO broadcast responses are often lost due to RS485 bus collisions when multiple
+            // devices reply simultaneously. Fall back to discovering the drive unit from its
+            // PRD response: the first PRD reply that is not from the OXI receiver is treated
+            // as the drive controller.
+            std::vector<uint8_t> prd_data(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
+
+            // Check if this is an OXI receiver by looking for "OXI" in the product name
+            std::string prd_str(prd_data.begin(), prd_data.end());
+            bool is_oxi_prd = (prd_str.find("OXI") != std::string::npos);
+
+            if (is_oxi_prd) {
+              // OXI receiver responded to PRD before the motor — store address only.
+              // Do NOT queue OXI init queries here: that would flood the bus and block
+              // the motor's PRD response which arrives ~100ms after the broadcast.
+              // OXI init will happen via the normal WHO path once the motor is found.
+              this->addr_oxi[0] = data[4];
+              this->addr_oxi[1] = data[5];
+              ESP_LOGI(TAG, "OXI receiver discovered via PRD fallback: addr %02X:%02X, product: %s", data[4], data[5], prd_str.c_str());
+            } else {
+              // This is the drive controller
+              this->addr_to[0] = data[4];
+              this->addr_to[1] = data[5];
+              this->init_ok = true;
+              this->product_ = prd_data;
+              std::vector<uint8_t> wla1       = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
+              std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
+              std::vector<uint8_t> ROBUSR10   = {0x52,0x4F,0x42,0x55,0x53,0x52,0x31,0x30,0x00};
+              if (this->product_ == wla1) this->is_walky = true;
+              if (this->product_ == ROBUSHSR10 || this->product_ == ROBUSR10) {
+                this->is_robus = true;
+                ESP_LOGI(TAG, "ROBUS drive detected — position polling disabled");
+              }
+              ESP_LOGI(TAG, "Drive unit discovered via PRD fallback: addr %02X:%02X, product: %s", data[4], data[5], prd_str.c_str());
+            }
           }
           break;
         case HWR:
@@ -641,7 +724,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             else if (data[14] == 0x0A) { // receiver
               this->addr_oxi[0] = data[4];
               this->addr_oxi[1] = data[5];
-              init_device(data[4], data[5], data[14]);
+              // Only init OXI after the motor is found — otherwise the 4 OXI queries
+              // flood the bus and block the motor's PRD response.
+              if (this->init_ok) {
+                init_device(data[4], data[5], data[14]);
+              }
             }
           }
           break;
@@ -702,6 +789,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             break;
           case ENDTIME:
             ESP_LOGI(TAG, "Operation timed out");
+            this->current_operation = COVER_OPERATION_IDLE;
+            request_position();
+            break;
+          case 0x11:  // 0x91 - obstacle detected: motor stops and reverses automatically
+            ESP_LOGW(TAG, "Obstacle detected");
             this->current_operation = COVER_OPERATION_IDLE;
             request_position();
             break;
@@ -1112,30 +1204,39 @@ void NiceBusT4::send_array_cmd(std::vector<uint8_t> data) {          // sends br
   return send_array_cmd((const uint8_t *)data.data(), data.size());
 }
 void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
-  // sending data to uart
+  uart_port_t port = (uart_port_t)_uart_nr;
 
-  char br_ch = 0x00;                            // for break
-  uartFlush(_uart);                             // clear uart
-  uartSetBaudRate(_uart, BAUD_BREAK);           // lower the body rate
-  //uart_write(_uart, &br_ch, 1);               // for ESP8266                     // send zero at low speed, long zero
-  uart_write_bytes(UART_NUM_1, &br_ch, 1);      // for ESP32    // send zero at low speed, long zero
-  //uart_write(_uart, (char *)&dummy, 1);
-  //uart_wait_tx_empty(_uart);                  // for ESP8266   // We wait until the sending is completed. There is an error here in the uart.h library (esp8266 core 3.0.2), waiting is not enough for further uart_set_baudrate().
-  uart_wait_tx_done(UART_NUM_1,100);            // for ESP32      // We wait until the sending is completed. There is an error here in the uart.h library (esp8266 core 3.0.2), waiting is not enough for further uart_set_baudrate().
-  delayMicroseconds(90);                        // add a delay to the wait, otherwise the speed will switch before sending. With delay on d1-mini I got a perfect signal, break = 520us
-  uartSetBaudRate(_uart, BAUD_WORK);            // we return the working body rate
-  //uart_write(_uart, (char *)&data[0], len);             // for ESP8266   // send the main package
-  uart_write_bytes(UART_NUM_1, (char *)&data[0], len);    // for ESP32      // send the main package
-  //uart_write(_uart, (char *)raw_cmd_buf, sizeof(raw_cmd_buf));
-  //uart_wait_tx_empty(_uart);          // for ESP8266     // waiting for the sending to complete
-  uart_wait_tx_done(UART_NUM_1,100);    // for ESP32        // waiting for the sending to complete
+  uart_flush(port);
+
+  // Generate BusT4 break signal (~520 µs) by temporarily toggling GPIO matrix inversion.
+  // Using esp_rom_gpio_connect_out_signal() is more reliable than uart_set_line_inverse()
+  // on ESP32-C3, where the GPIO matrix routing set by uart_set_pin() can override the
+  // UART peripheral's inversion register.
+  //
+  // Without TX inversion (_tx_inverted = false):
+  //   Idle = HIGH (3.3V). Enabling inversion drives TX LOW — the break condition on the bus.
+  //
+  // With TX inversion (_tx_inverted = true, 2N7000 circuit):
+  //   Idle = LOW (0V), 2N7000 OFF, bus = HIGH.
+  //   Break: disable inversion → TX HIGH → 2N7000 ON → bus LOW for 520 µs.
+  uint32_t tx_sig = UART_TX_SIG[_uart_nr];
+  if (_tx_inverted) {
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, false, false); // TX HIGH → 2N7000 ON → bus LOW (break)
+    delayMicroseconds(520);
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true,  false); // TX LOW  → 2N7000 OFF → bus HIGH (idle)
+  } else {
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true,  false); // TX LOW (break)
+    delayMicroseconds(520);
+    esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, false, false); // TX HIGH (idle)
+  }
+  delayMicroseconds(10);                            // brief mark before first start bit
+
+  uart_write_bytes(port, (const char *)data, len);
+  uart_wait_tx_done(port, pdMS_TO_TICKS(100));
   delayMicroseconds(90);
-  //delayMicroseconds(150); //for ESP32
 
-
-  std::string pretty_cmd = format_hex_pretty((uint8_t*)&data[0], len);                    // to output the command to the log
-  ESP_LOGI(TAG,  "Sent: %S ", pretty_cmd.c_str() );
-
+  std::string pretty_cmd = format_hex_pretty(data, len);
+  ESP_LOGI(TAG, "Sent: %S", pretty_cmd.c_str());
 }
 
 // generating and sending inf commands from yaml configuration
@@ -1200,7 +1301,15 @@ void NiceBusT4::init_device(const uint8_t addr1, const uint8_t addr2, const uint
 
     //other settings/informations
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, P_COUNT, GET, 0x00)); // Number of cycles
-		tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Stand by  
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Operator block
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SLOW_ON, GET, 0x00));        // Slow mode on/off
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_OPN, GET, 0x00)); // Slow opening speed
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SPEED_SLW_CLS, GET, 0x00)); // Slow closing speed
+
+    // If OXI was already discovered (via WHO before motor was found), init it now.
+    if (this->addr_oxi[0] != 0x00 || this->addr_oxi[1] != 0x00) {
+      init_device(this->addr_oxi[0], this->addr_oxi[1], FOR_OXI);
+    }
   }
   if (device == FOR_OXI) {
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, FOR_ALL, PRD, GET, 0x00)); // product request
@@ -1231,6 +1340,14 @@ void NiceBusT4::update_position(uint16_t newpos) {
   position = (_pos_usl - _pos_cls) * 1.0f / (_pos_opn - _pos_cls);
   ESP_LOGI(TAG, "Conditional gate position: %d, position at %%: %.3f", newpos, position);
   if (position < CLOSED_POSITION_THRESHOLD) position = COVER_CLOSED;
+  if (position > COVER_OPEN) {
+    // Encoder exceeded the stored _pos_opn (default 2048 may be too small).
+    // Update _pos_opn to the current encoder value and treat gate as fully open.
+    _pos_opn = _pos_usl;
+    position = COVER_OPEN;
+    current_operation = COVER_OPERATION_IDLE;
+    ESP_LOGI(TAG, "Gate reached open end — updating _pos_opn to %d", _pos_opn);
+  }
   publish_state_if_changed();  // publish the status
   
   if ((position_hook_type == STOP_UP && _pos_usl >= position_hook_value) || (position_hook_type == STOP_DOWN && _pos_usl <= position_hook_value)) {

@@ -179,13 +179,111 @@ button:
 
 
 
+  - platform: template
+    name: Partial opening 2
+    id: p_opn2
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN2);
+
+  - platform: template
+    name: Partial opening 3
+    id: p_opn3
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN3);
+
+  - platform: template
+    name: Partial opening 4
+    id: p_opn4
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN4);
+
+  - platform: template
+    name: Partial opening 5 (Priority SBS)
+    id: p_opn5
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN5);
+
+  - platform: template
+    name: Partial opening 6 (Open and block)
+    id: p_opn6
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::P_OPN6);
+
+  - platform: template
+    name: Lock
+    id: lock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LOCK);
+
+  - platform: template
+    name: Unlock
+    id: unlock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLOCK);
+
+  - platform: template
+    name: Close and lock
+    id: cls_lock_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::CLS_LOCK);
+
+  - platform: template
+    name: Unlock and open
+    id: unlk_opn_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLK_OPN);
+
+  - platform: template
+    name: Unlock and close
+    id: unlck_cls_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::UNLCK_CLS);
+
+  - platform: template
+    name: Light timer
+    id: light_timer_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LIGHT_TIMER);
+
+  - platform: template
+    name: Light on/off
+    id: light_sw_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::LIGHT_SW);
+
+  - platform: template
+    name: Auto-opening ON
+    id: auto_on_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::AUTO_ON);
+
+  - platform: template
+    name: Auto-opening OFF
+    id: auto_off_btn
+    on_press:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_cmd(bus_t4::AUTO_OFF);
+
   # - platform: template
   #   name: test_check_cmd
   #   id: p_opn12
   #   on_press:
   #     lambda: |-
   #        my_nice_cover -> NiceBusT4::check_cmd();
-                      
+
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::STOP);
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::OPEN);
 #         my_nice_cover -> NiceBusT4::send_cmd(bus_t4::CLOSE);
@@ -404,6 +502,25 @@ switch:
       lambda: |-
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "a9", "00", true, "00");
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "9A", "99", "00", true, "01");
+
+  - platform: template
+    name: "Slow mode (Schleichgang)"
+    id: slow_mode
+    restore_mode: DISABLED
+    lambda: |-
+      if (my_nice_cover -> NiceBusT4::slow_on_flag) {
+        return true;
+      } else {
+        return false;
+      }
+    turn_on_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "a9", "00", true, "01");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "99", "00", true, "01");
+    turn_off_action:
+      lambda: |-
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "a9", "00", true, "00");
+        my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "99", "00", true, "01");
 
 # cover:
 cover:
@@ -634,7 +751,51 @@ number:
         - delay: 1s  
         - lambda: |-
             id(pause_time_number).publish_state(my_nice_cover -> NiceBusT4::pause_time); //to be sure that value is updated
-        - component.update: pause_time_text_sensor  # update text_sensor immedietely      
+        - component.update: pause_time_text_sensor  # update text_sensor immedietely
+
+# Slow speed open (SPEED_SLW_OPN = 0x45), default 22, range 1-100
+  - platform: template
+    name: Slow opening speed
+    id: slow_speed_open_number
+    min_value: 1
+    max_value: 100
+    step: 1
+    icon: 'mdi:speedometer-slow'
+    mode: 'box'
+    lambda: |-
+      return (my_nice_cover -> NiceBusT4::speed_slw_opn);
+    set_action:
+      then:
+        - lambda: |-
+            char hex_val[3];
+            snprintf(hex_val, sizeof(hex_val), "%02X", (int)x);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "45", "a9", "00", true, hex_val);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "45", "99", "00", true, "01");
+        - delay: 1s
+        - lambda: |-
+            id(slow_speed_open_number).publish_state(my_nice_cover -> NiceBusT4::speed_slw_opn);
+
+# Slow speed close (SPEED_SLW_CLS = 0x46), default 22, range 1-100
+  - platform: template
+    name: Slow closing speed
+    id: slow_speed_close_number
+    min_value: 1
+    max_value: 100
+    step: 1
+    icon: 'mdi:speedometer-slow'
+    mode: 'box'
+    lambda: |-
+      return (my_nice_cover -> NiceBusT4::speed_slw_cls);
+    set_action:
+      then:
+        - lambda: |-
+            char hex_val[3];
+            snprintf(hex_val, sizeof(hex_val), "%02X", (int)x);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "46", "a9", "00", true, hex_val);
+            my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "46", "99", "00", true, "01");
+        - delay: 1s
+        - lambda: |-
+            id(slow_speed_close_number).publish_state(my_nice_cover -> NiceBusT4::speed_slw_cls);
 
 # SELECT ------------------------------------------------------------------------------------------------------------------
 select:
@@ -1035,84 +1196,31 @@ select:
       - 'L7 - Very heavy'
       - 'L8 - Ultra-heavy'
       - 'other'
-    lambda: |- 
-        std::string new_option;
+    lambda: |-
         switch (my_nice_cover -> NiceBusT4::motor_force_open) {
-          case 1: //w DEC
-            new_option = id(motor_force_open_select).at(0).value_or("other");
-            break;
-          case 3:
-            new_option = id(motor_force_open_select).at(1).value_or("other");
-            break;
-          case 2:
-            new_option = id(motor_force_open_select).at(2).value_or("other");
-            break;
-          case 16:
-            new_option = id(motor_force_open_select).at(3).value_or("other");
-            break;
-          case 17:
-            new_option = id(motor_force_open_select).at(4).value_or("other");
-            break;
-          case 18:
-            new_option = id(motor_force_open_select).at(5).value_or("other");
-            break;
-          case 4:
-            new_option = id(motor_force_open_select).at(6).value_or("other");
-            break;
-          case 7:
-            new_option = id(motor_force_open_select).at(7).value_or("other");
-            break;
-          default:
-            new_option = "unknown";  // Default option if the level is out of range
+          case 30:  return std::string("L1 - Ultra-light");
+          case 40:  return std::string("L2 - Very light");
+          case 50:  return std::string("L3 - Light");
+          case 60:  return std::string("L4 - Average");
+          case 70:  return std::string("L5 - Medium-heavy");
+          case 80:  return std::string("L6 - Heavy");
+          case 90:  return std::string("L7 - Very heavy");
+          case 100: return std::string("L8 - Ultra-heavy");
+          default:  return std::string("other");
         }
-        //id(motor_force_open_select).publish_state(new_option.c_str());
-        //ESP_LOGD("debug", "new_option = : %s", new_option.c_str());
-        return new_option;
 
-    set_action: 
+    set_action:
       then:
-        - logger.log: 
-            format: "chosen option %s"
-            args: [ "x.c_str()" ]
-        - logger.log: 
-            format: "Selected index: %d"
-            args: [ "(id(motor_force_open_select).index_of(x.c_str())).value_or(0)" ]
-
         - lambda: |-
-            if (x != "other") {
-              int motor_force_open_variable;
-              switch ((id(motor_force_open_select).index_of(x.c_str())).value_or(0)) {
-                case 0:
-                  motor_force_open_variable = 1;
-                  break;
-                case 1:
-                  motor_force_open_variable = 3;
-                  break;
-                case 2:
-                  motor_force_open_variable = 2;
-                  break;
-                case 3:
-                  motor_force_open_variable = 16;
-                  break;
-                case 4:
-                  motor_force_open_variable = 17;
-                  break;
-                case 5:
-                  motor_force_open_variable = 18;
-                  break;
-                case 6:
-                  motor_force_open_variable = 4;
-                  break;
-                case 7:
-                  motor_force_open_variable = 7;
-                  break;
-              }
-              char motor_force_open_variable_hex[2];
-              sprintf(motor_force_open_variable_hex, "%X", motor_force_open_variable);
-              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "a9", "00", true, motor_force_open_variable_hex);
+            const int vals[] = {30, 40, 50, 60, 70, 80, 90, 100};
+            auto idx = id(motor_force_open_select).index_of(x.c_str()).value_or(8);
+            if (idx < 8) {
+              char hex[3];
+              snprintf(hex, sizeof(hex), "%X", vals[idx]);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "a9", "00", true, hex);
               my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "99", "00", true, "01");
-            }  
-        - delay: 1s  
+            }
+        - delay: 1s
         - component.update: motor_force_open_text_sensor  # update text_sensor immedietely
 
 
@@ -1131,84 +1239,31 @@ select:
       - 'L7 - Very heavy'
       - 'L8 - Ultra-heavy'
       - 'other'
-    lambda: |- 
-        std::string new_option;
+    lambda: |-
         switch (my_nice_cover -> NiceBusT4::motor_force_close) {
-          case 1: //w DEC
-            new_option = id(motor_force_close_select).at(0).value_or("other");
-            break;
-          case 3:
-            new_option = id(motor_force_close_select).at(1).value_or("other");
-            break;
-          case 2:
-            new_option = id(motor_force_close_select).at(2).value_or("other");
-            break;
-          case 16:
-            new_option = id(motor_force_close_select).at(3).value_or("other");
-            break;
-          case 17:
-            new_option = id(motor_force_close_select).at(4).value_or("other");
-            break;
-          case 18:
-            new_option = id(motor_force_close_select).at(5).value_or("other");
-            break;
-          case 4:
-            new_option = id(motor_force_close_select).at(6).value_or("other");
-            break;
-          case 7:
-            new_option = id(motor_force_close_select).at(7).value_or("other");
-            break;
-          default:
-            new_option = "unknown";  // Default option if the level is out of range
+          case 30:  return std::string("L1 - Ultra-light");
+          case 40:  return std::string("L2 - Very light");
+          case 50:  return std::string("L3 - Light");
+          case 60:  return std::string("L4 - Average");
+          case 70:  return std::string("L5 - Medium-heavy");
+          case 80:  return std::string("L6 - Heavy");
+          case 90:  return std::string("L7 - Very heavy");
+          case 100: return std::string("L8 - Ultra-heavy");
+          default:  return std::string("other");
         }
-        //id(motor_force_close_select).publish_state(new_option.c_str());
-        //ESP_LOGD("debug", "new_option = : %s", new_option.c_str());
-        return new_option;
 
-    set_action: 
+    set_action:
       then:
-        - logger.log: 
-            format: "chosen option %s"
-            args: [ "x.c_str()" ]
-        - logger.log: 
-            format: "Selected index: %d"
-            args: [ "(id(motor_force_close_select).index_of(x.c_str())).value_or(0)" ]
-
         - lambda: |-
-            if (x != "other") {
-              int motor_force_close_variable;
-              switch ((id(motor_force_close_select).index_of(x.c_str())).value_or(0)) {
-                case 0:
-                  motor_force_close_variable = 1;
-                  break;
-                case 1:
-                  motor_force_close_variable = 3;
-                  break;
-                case 2:
-                  motor_force_close_variable = 2;
-                  break;
-                case 3:
-                  motor_force_close_variable = 16;
-                  break;
-                case 4:
-                  motor_force_close_variable = 17;
-                  break;
-                case 5:
-                  motor_force_close_variable = 18;
-                  break;
-                case 6:
-                  motor_force_close_variable = 4;
-                  break;
-                case 7:
-                  motor_force_close_variable = 7;
-                  break;
-              }
-              char motor_force_close_variable_hex[2];
-              sprintf(motor_force_close_variable_hex, "%X", motor_force_close_variable);
-              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "a9", "00", true, motor_force_close_variable_hex);
-              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4A", "99", "00", true, "01");
-            }  
-        - delay: 1s  
+            const int vals[] = {30, 40, 50, 60, 70, 80, 90, 100};
+            auto idx = id(motor_force_close_select).index_of(x.c_str()).value_or(8);
+            if (idx < 8) {
+              char hex[3];
+              snprintf(hex, sizeof(hex), "%X", vals[idx]);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4B", "a9", "00", true, hex);
+              my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "4B", "99", "00", true, "01");
+            }
+        - delay: 1s
         - component.update: motor_force_close_text_sensor  # update text_sensor immedietely
 
 # For information purposes - just to be sure of setting values
