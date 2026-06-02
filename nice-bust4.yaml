@@ -344,7 +344,7 @@ switch:
 #         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "84", "99", "00", true, "01");                
 
   - platform: gpio
-    name: "Swiatlo brama"
+    name: "Gate light"
     pin: ${light_relay_pin}
 
   - platform: template
@@ -852,7 +852,7 @@ select:
             break;
           default:
             new_option = "unknown";  // Default option if the level is out of range
-            //new_option = "L1 - Otwiera - stop - zamyka - stop";  // Default option if the level is out of range  
+            //new_option = "L1 - Open - Stop - Close - Stop";  // Default option if the level is out of range  
         }
         //id(sbs_mode_select).publish_state(new_option.c_str());
         return new_option;
@@ -875,7 +875,7 @@ select:
       then:
         # - logger.log: "wybrano opcję"
         - logger.log: 
-            format: "wybrano opcję %s"
+            format: "Chosen option %s"
             args: [ "x.c_str()" ]
         # - lambda: |-
         #     std::string sbs_mode_variable;
