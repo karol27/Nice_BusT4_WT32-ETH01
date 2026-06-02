@@ -516,7 +516,7 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
 
         case SLOW_ON:
           this->slow_on_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow mode (Schleichgang): %S ", slow_on_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Slow mode: %S ", slow_on_flag ? "Yes" : "No");
           break;
 
         case SPEED_SLW_OPN:
