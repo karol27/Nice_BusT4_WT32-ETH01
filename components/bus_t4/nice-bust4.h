@@ -363,7 +363,49 @@ enum position_hook_type : uint8_t {
 // I create a class, inherit members of the Component and Cover classes
 class NiceBusT4 : public Component, public Cover {
   public:
-  
+    NiceBusT4() {
+      this->position = COVER_CLOSED;
+      this->current_operation = COVER_OPERATION_IDLE;
+
+      this->autocls_flag = false;
+      this->photocls_flag = false;
+      this->alwayscls_flag = false;
+      this->standby_flag = false;
+      this->peak_flag = false;
+      this->preflashing_flag = false;
+      this->close_to_popen_flag = false;
+      this->slavemode_flag = false;
+      this->op_block_flag = false;
+      this->slow_on_flag = false;
+
+      this->pause_time = 0;
+      this->step_by_step_mode = 0;
+      this->motor_speed_open = 0;
+      this->motor_speed_close = 0;
+      this->GOI_mode = 0;
+      this->motor_force_open = 0;
+      this->motor_force_close = 0;
+      this->p_open_mode = 0;
+      this->maint_not_mode = 0;
+      this->fault_list_mode = 0;
+      this->current_position = 0;
+      this->max_encoder_position = 0;
+      this->speed_slw_opn = 0;
+      this->speed_slw_cls = 0;
+      this->out1 = 0;
+      this->out2 = 0;
+      this->lock_time = 0;
+      this->lamp_time = 0;
+      this->s_cup_time = 0;
+      this->p_count = 0;
+
+      this->last_published_op = COVER_OPERATION_IDLE;
+      this->position_hook_value = 0;
+      this->addr_to[0] = 0x00;
+      this->addr_to[1] = 0x00;
+      this->addr_oxi[0] = 0x00;
+      this->addr_oxi[1] = 0x00;
+    }
     //  drive settings
     bool autocls_flag;        // Auto close - L1
     bool photocls_flag;       // Close after photo - L2
