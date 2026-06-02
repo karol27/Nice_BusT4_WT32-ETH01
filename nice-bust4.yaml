@@ -532,10 +532,10 @@ cover:
     device_class: gate
   #  address: 0x0003            # drive address
   #  use_address: 0x0081        # gateway address
-    uart_num: 1        # default: 1
-    tx_pin: 14         # default: 17
-    rx_pin: 27         # default: 5
-    tx_inverted: true  # default: false
+    #uart_num: 1        # default: 1
+    #tx_pin: 14         # default: 17
+    #rx_pin: 27         # default: 5
+    #tx_inverted: true  # default: false
 
 
 # one_wire:
