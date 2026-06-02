@@ -27,7 +27,10 @@ ethernet:
   type: LAN8720
   mdc_pin: GPIO23
   mdio_pin: GPIO18
-  clk_mode: GPIO0_IN
+  #clk_mode: GPIO0_IN #The 'clk_mode' option is deprecated and will be removed in ESPHome 2026.1. Please update your configuration to use 'clk' instead.
+  clk: #from 2025.7
+    pin: GPIO0
+    mode: CLK_EXT_IN
   phy_addr: 1
   power_pin: GPIO16
   #Optional manual IP
