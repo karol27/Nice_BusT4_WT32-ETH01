@@ -64,6 +64,8 @@ external_components:
   - source:
       type: git
       url: https://github.com/karol27/Nice_BusT4_WT32-ETH01
+      ref: beta
+    components: [bus_t4]
     refresh: 0s
 
 #wifi:
