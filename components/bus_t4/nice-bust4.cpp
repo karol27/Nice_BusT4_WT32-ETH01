@@ -504,6 +504,11 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           ESP_LOGCONFIG(TAG, "  Motor force close - settings level 2, L4: %u", motor_force_close ); 
           break;
 
+        case LAMP_TIME:
+          this->lamp_time = data[14];          
+          ESP_LOGCONFIG(TAG, "  Lamp time: %u", lamp_time ); //in seconds
+          break;
+					
         case P_COUNT:
           this->p_count = (data[14] << 24) + (data[15] << 16) + (data[16] << 8) + data[17];
           ESP_LOGCONFIG(TAG, "  Number of cycles: %u", p_count ); 
@@ -601,6 +606,10 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
 
         case CLS_PWR:
          tx_buffer_.push(gen_inf_cmd(FOR_CU, CLS_PWR, GET)); // close force
+         break;
+
+        case LAMP_TIME:
+         tx_buffer_.push(gen_inf_cmd(FOR_CU, LAMP_TIME, GET)); // pause time
          break;
 
         case P_COUNT:
@@ -1300,6 +1309,7 @@ void NiceBusT4::init_device(const uint8_t addr1, const uint8_t addr2, const uint
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, CLS_PWR, GET, 0x00));   // close force
 
     //other settings/informations
+    tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, LAMP_TIME, GET, 0x00));    // Lamp time
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, P_COUNT, GET, 0x00)); // Number of cycles
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, OP_BLOCK, GET, 0x00)); // Operator block
     tx_buffer_.push(gen_inf_cmd(addr1, addr2, device, SLOW_ON, GET, 0x00));        // Slow mode on/off
