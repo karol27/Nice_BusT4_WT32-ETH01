@@ -140,6 +140,9 @@ api:
 
 # Buttons for sending commands
 button:
+  - platform: restart
+    name: "Nice WT32-ETH01 Restart"
+    
   - platform: template
     name: Step-by-step
     id: sbs
@@ -314,8 +317,6 @@ button:
 
 
 switch:
-  - platform: restart
-    name: "Nice WT32-ETH01 Restart"
 
 # # disable automatic closing of the gate, if necessary for loading and unloading operations?
 # #auto_close & close_ater_photo
