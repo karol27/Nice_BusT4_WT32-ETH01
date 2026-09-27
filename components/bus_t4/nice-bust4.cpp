@@ -303,7 +303,8 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             data[19]
           );
         }
-
+      }
+			
       switch (data[10]) { // cmd_submnu
         case TYPE_M:
           //           ESP_LOGI(TAG,  "type of drive %X",  data[14]);

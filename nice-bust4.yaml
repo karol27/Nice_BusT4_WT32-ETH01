@@ -47,7 +47,7 @@ logger:
 
 ota:
   - platform: esphome
-    password: $ota_password
+    encryption:
 
 # Enable web server (can be disabled)
 web_server:
@@ -528,6 +528,28 @@ switch:
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "a9", "00", true, "00");
         my_nice_cover -> NiceBusT4::send_inf_cmd("0003", "04", "A2", "99", "00", true, "01");
 
+// for photo barrier
+binary_sensor:
+  - platform: template
+    name: "Fotokomórka bramy"
+    id: gate_photo
+    device_class: safety
+    lambda: |-
+      if (!id(my_nice_cover).photo_state_valid) {
+        return {};
+      }
+
+      return id(my_nice_cover).photo_blocked;
+
+# pooling to check photo barrier state
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          id(my_nice_cover).send_raw_cmd(
+            "55.0D.00.03.00.66.08.06.6B.04.D0.99.00.00.4D.0D"
+          );
+          
 # cover:
 cover:
   - platform: bus_t4
