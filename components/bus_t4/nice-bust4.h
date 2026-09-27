@@ -484,6 +484,10 @@ class NiceBusT4 : public Component, public Cover {
       this->update_interval_ = update_interval;
     }*/
 
+    // photo barrier
+    bool photo_blocked = false;
+    bool photo_state_valid = false;
+		
     cover::CoverTraits get_traits() override;
 
   protected:

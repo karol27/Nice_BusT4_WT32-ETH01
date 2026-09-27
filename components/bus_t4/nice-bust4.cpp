@@ -287,6 +287,23 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
 
     if ((data[6] == INF) && (data[9] == FOR_CU)  && (data[11] == GET - 0x80) && (data[13] == NOERR)) { // interested in completed responses to GET requests that arrived without errors from the drive
       ESP_LOGI(TAG,  "Request response received %X ", data[10] );
+      
+      // check photo barrier state
+      if (data.size() > 19) {
+        bool new_photo_blocked = (data[19] & 0x04) == 0;
+
+        if (!photo_state_valid || new_photo_blocked != photo_blocked) {
+          photo_blocked = new_photo_blocked;
+          photo_state_valid = true;
+
+          ESP_LOGI(
+            TAG,
+            "PHOTO: %s (data[19]=0x%02X)",
+            photo_blocked ? "BLOCKED" : "CLEAR",
+            data[19]
+          );
+        }
+
       switch (data[10]) { // cmd_submnu
         case TYPE_M:
           //           ESP_LOGI(TAG,  "type of drive %X",  data[14]);
