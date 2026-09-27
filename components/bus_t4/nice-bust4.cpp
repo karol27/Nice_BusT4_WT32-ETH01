@@ -377,12 +377,13 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           break;
 
         case CUR_POS:
-          if (is_walky)
+          if (is_walky) {
             update_position(data[15]);
-          else
+					} else {
             update_position((data[14] << 8) + data[15]);
             current_position = (data[14] << 8) + data[15];
-          break;
+          }
+					break;
 
         case INF_STATUS:
           switch (data[14]) {
@@ -489,42 +490,42 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             // ESP_LOGW("bus_t4", "pause_time_sensor is not set!");
           // }
           
-          ESP_LOGCONFIG(TAG, "  Pause time - settings level 2, L1: %lu", pause_time ); //in seconds
+          ESP_LOGCONFIG(TAG, "  Pause time - settings level 2, L1: %d", pause_time ); //in seconds
           break;
         
         case COMM_SBS:
           this->step_by_step_mode = data[14];
-          ESP_LOGCONFIG(TAG, "  Step by step mode - settings level 2, L2: %lu", step_by_step_mode ); 
+          ESP_LOGCONFIG(TAG, "  Step by step mode - settings level 2, L2: %d", step_by_step_mode ); 
           break;
           
         case SPEED_OPN:
           this->motor_speed_open = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor speed open - settings level 2, L3: %lu", motor_speed_open ); 
+          ESP_LOGCONFIG(TAG, "  Motor speed open - settings level 2, L3: %d", motor_speed_open ); 
           break;
           
         case SPEED_CLS:
           this->motor_speed_close = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor speed close - settings level 2, L3: %lu", motor_speed_close ); 
+          ESP_LOGCONFIG(TAG, "  Motor speed close - settings level 2, L3: %d", motor_speed_close ); 
           break;
 
         case OUT2:
           this->out2 = data[14];
-          ESP_LOGCONFIG(TAG, "  GOI mode - settings level 2, L4: %lu", out2 ); 
+          ESP_LOGCONFIG(TAG, "  GOI mode - settings level 2, L4: %d", out2 ); 
           break;
 
         case OPN_PWR:
           this->motor_force_open = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor force open - settings level 2, L5: %lu", motor_force_open ); 
+          ESP_LOGCONFIG(TAG, "  Motor force open - settings level 2, L5: %d", motor_force_open ); 
           break;
 
         case CLS_PWR:
           this->motor_force_close = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor force close - settings level 2, L4: %lu", motor_force_close ); 
+          ESP_LOGCONFIG(TAG, "  Motor force close - settings level 2, L4: %d", motor_force_close ); 
           break;
 
         case LAMP_TIME:
           this->lamp_time = data[14];          
-          ESP_LOGCONFIG(TAG, "  Lamp time: %lu", lamp_time ); //in seconds
+          ESP_LOGCONFIG(TAG, "  Lamp time: %d", lamp_time ); //in seconds
           break;
 					
         case P_COUNT:
@@ -544,12 +545,12 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
 
         case SPEED_SLW_OPN:
           this->speed_slw_opn = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow opening speed: %lu", speed_slw_opn);
+          ESP_LOGCONFIG(TAG, "  Slow opening speed: %d", speed_slw_opn);
           break;
 
         case SPEED_SLW_CLS:
           this->speed_slw_cls = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow closing speed: %lu", speed_slw_cls);
+          ESP_LOGCONFIG(TAG, "  Slow closing speed: %d", speed_slw_cls);
           break;
 
       } // switch cmd_submnu
@@ -1127,13 +1128,13 @@ void NiceBusT4::dump_config() {    //  add information about the connected contr
   ESP_LOGCONFIG(TAG, "  Slave mode - L8: %s ", slavemode_flag ? "Yes" : "No");
 
   //settings - level 2
-  ESP_LOGCONFIG(TAG, "  Pause time level - level 2, L1: %lu ", pause_time);
-  ESP_LOGCONFIG(TAG, "  Step by step mode - level 2, L2: %lu ", step_by_step_mode);
-  ESP_LOGCONFIG(TAG, "  Motor speed open - level 2, L3: %lu ", motor_speed_open);
-  ESP_LOGCONFIG(TAG, "  Motor speed close - level 2, L3: %lu ", motor_speed_close);
-  ESP_LOGCONFIG(TAG, "  GOI mode - level 2, L4: %lu ", out2);
-  ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %lu ", motor_force_open);
-  ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %lu ", motor_force_close);
+  ESP_LOGCONFIG(TAG, "  Pause time level - level 2, L1: %d ", pause_time);
+  ESP_LOGCONFIG(TAG, "  Step by step mode - level 2, L2: %d ", step_by_step_mode);
+  ESP_LOGCONFIG(TAG, "  Motor speed open - level 2, L3: %d ", motor_speed_open);
+  ESP_LOGCONFIG(TAG, "  Motor speed close - level 2, L3: %d ", motor_speed_close);
+  ESP_LOGCONFIG(TAG, "  GOI mode - level 2, L4: %d ", out2);
+  ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %d ", motor_force_open);
+  ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %d ", motor_force_close);
   ESP_LOGCONFIG(TAG, "  Number of cycles: %lu ", p_count);
   ESP_LOGCONFIG(TAG, "  Operator blocking: %s ", op_block_flag ? "Yes" : "No");  
 
