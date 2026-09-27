@@ -99,7 +99,7 @@ void NiceBusT4::setup() {
     // the reliable approach — this is also what ESPHome uses internally for inverted UART pins.
     uint32_t tx_sig = UART_TX_SIG[_uart_nr];
     esp_rom_gpio_connect_out_signal(_tx_pin, tx_sig, true /*invert*/, false);
-    ESP_LOGI(TAG, "  TX inverted via GPIO matrix (idle = LOW, sig=%u)", tx_sig);
+    ESP_LOGI(TAG, "  TX inverted via GPIO matrix (idle = LOW, sig=%lu)", tx_sig);
   }
 }
 
@@ -248,7 +248,7 @@ bool NiceBusT4::validate_message_() {                    // checking the receive
 
   // to output the package to the log
   std::string pretty_cmd = format_hex_pretty(rx_message_);
-  ESP_LOGI(TAG,  "Package received: %S ", pretty_cmd.c_str() );
+  ESP_LOGI(TAG,  "Package received: %s ", pretty_cmd.c_str() );
 
   // here we do something with the message
   parse_status_packet(rx_message_);
@@ -279,10 +279,10 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
   //  ESP_LOGD(TAG, "EVT packet with data received. Last cell %d ", data[12]);
     std::vector<uint8_t> vec_data(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
     std::string str(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
-    ESP_LOGI(TAG,  "Data string: %S ", str.c_str() );
+    ESP_LOGI(TAG,  "Data string: %s ", str.c_str() );
     std::string pretty_data = format_hex_pretty(vec_data);
-    ESP_LOGI(TAG,  "HEX data %S ", pretty_data.c_str() );
-    // ESP_LOGI(TAG,  "Dane wektorowe %S ", vec_data.c_str() );
+    ESP_LOGI(TAG,  "HEX data %s ", pretty_data.c_str() );
+    // ESP_LOGI(TAG,  "Dane wektorowe %s ", vec_data.c_str() );
     // We received a package with EVT data, we are starting to disassemble it
 
     if ((data[6] == INF) && (data[9] == FOR_CU)  && (data[11] == GET - 0x80) && (data[13] == NOERR)) { // interested in completed responses to GET requests that arrived without errors from the drive
@@ -425,42 +425,42 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
           //      default: // cmd_mnu
         case AUTOCLS:
           this->autocls_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Auto close - L1: %S ", autocls_flag ? "Yes" : "No");  
+          ESP_LOGCONFIG(TAG, "  Auto close - L1: %s ", autocls_flag ? "Yes" : "No");  
           break;
           
         case PH_CLS_ON:
           this->photocls_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Close after photo - L2: %S ", photocls_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Close after photo - L2: %s ", photocls_flag ? "Yes" : "No");
           break;  
           
         case ALW_CLS_ON:
           this->alwayscls_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Always close - L3: %S ", alwayscls_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Always close - L3: %s ", alwayscls_flag ? "Yes" : "No");
           break;     
 
         case STANDBY_ON:
           this->standby_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Stand-by - L4: %S ", standby_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Stand-by - L4: %s ", standby_flag ? "Yes" : "No");
           break;
         
         case START_ON:
           this->peak_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Peak - L5: %S ", peak_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Peak - L5: %s ", peak_flag ? "Yes" : "No");
           break; 
         
         case BLINK_ON:
           this->preflashing_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Pre-flasing - L6: %S ", preflashing_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Pre-flasing - L6: %s ", preflashing_flag ? "Yes" : "No");
           break; 
 
         // case SLAVE_ON:
           // this->close_to_popen_flag = data[14];
-          // ESP_LOGCONFIG(TAG, "  Close becomes Partial open- L7: %S ", close_to_popen_flag ? "Yes" : "No");
+          // ESP_LOGCONFIG(TAG, "  Close becomes Partial open- L7: %s ", close_to_popen_flag ? "Yes" : "No");
           // break; 
         
         case SLAVE_ON:
           this->slavemode_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Slave mode - L8: %S ", slavemode_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Slave mode - L8: %s ", slavemode_flag ? "Yes" : "No");
           break; 
 
         // level2 settings:
@@ -488,67 +488,67 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
             // ESP_LOGW("bus_t4", "pause_time_sensor is not set!");
           // }
           
-          ESP_LOGCONFIG(TAG, "  Pause time - settings level 2, L1: %u", pause_time ); //in seconds
+          ESP_LOGCONFIG(TAG, "  Pause time - settings level 2, L1: %lu", pause_time ); //in seconds
           break;
         
         case COMM_SBS:
           this->step_by_step_mode = data[14];
-          ESP_LOGCONFIG(TAG, "  Step by step mode - settings level 2, L2: %u", step_by_step_mode ); 
+          ESP_LOGCONFIG(TAG, "  Step by step mode - settings level 2, L2: %lu", step_by_step_mode ); 
           break;
           
         case SPEED_OPN:
           this->motor_speed_open = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor speed open - settings level 2, L3: %u", motor_speed_open ); 
+          ESP_LOGCONFIG(TAG, "  Motor speed open - settings level 2, L3: %lu", motor_speed_open ); 
           break;
           
         case SPEED_CLS:
           this->motor_speed_close = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor speed close - settings level 2, L3: %u", motor_speed_close ); 
+          ESP_LOGCONFIG(TAG, "  Motor speed close - settings level 2, L3: %lu", motor_speed_close ); 
           break;
 
         case OUT2:
           this->out2 = data[14];
-          ESP_LOGCONFIG(TAG, "  GOI mode - settings level 2, L4: %u", out2 ); 
+          ESP_LOGCONFIG(TAG, "  GOI mode - settings level 2, L4: %lu", out2 ); 
           break;
 
         case OPN_PWR:
           this->motor_force_open = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor force open - settings level 2, L5: %u", motor_force_open ); 
+          ESP_LOGCONFIG(TAG, "  Motor force open - settings level 2, L5: %lu", motor_force_open ); 
           break;
 
         case CLS_PWR:
           this->motor_force_close = data[14];
-          ESP_LOGCONFIG(TAG, "  Motor force close - settings level 2, L4: %u", motor_force_close ); 
+          ESP_LOGCONFIG(TAG, "  Motor force close - settings level 2, L4: %lu", motor_force_close ); 
           break;
 
         case LAMP_TIME:
           this->lamp_time = data[14];          
-          ESP_LOGCONFIG(TAG, "  Lamp time: %u", lamp_time ); //in seconds
+          ESP_LOGCONFIG(TAG, "  Lamp time: %lu", lamp_time ); //in seconds
           break;
 					
         case P_COUNT:
           this->p_count = (data[14] << 24) + (data[15] << 16) + (data[16] << 8) + data[17];
-          ESP_LOGCONFIG(TAG, "  Number of cycles: %u", p_count ); 
+          ESP_LOGCONFIG(TAG, "  Number of cycles: %lu", p_count ); 
           break;
 					
         case OP_BLOCK:
           this->op_block_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Operator blocking: %s ", op_block_flag ? "Yes" : "No");
           break;
 
         case SLOW_ON:
           this->slow_on_flag = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow mode: %S ", slow_on_flag ? "Yes" : "No");
+          ESP_LOGCONFIG(TAG, "  Slow mode: %s ", slow_on_flag ? "Yes" : "No");
           break;
 
         case SPEED_SLW_OPN:
           this->speed_slw_opn = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow opening speed: %u", speed_slw_opn);
+          ESP_LOGCONFIG(TAG, "  Slow opening speed: %lu", speed_slw_opn);
           break;
 
         case SPEED_SLW_CLS:
           this->speed_slw_cls = data[14];
-          ESP_LOGCONFIG(TAG, "  Slow closing speed: %u", speed_slw_cls);
+          ESP_LOGCONFIG(TAG, "  Slow closing speed: %lu", speed_slw_cls);
           break;
 
       } // switch cmd_submnu
@@ -656,16 +656,16 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
 
       switch (data[10]) {
         case MAN:
-          //       ESP_LOGCONFIG(TAG, "  Manufacturer: %S ", str.c_str());
+          //       ESP_LOGCONFIG(TAG, "  Manufacturer: %s ", str.c_str());
           this->manufacturer_.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
           break;
         case PRD:
           if ((this->addr_oxi[0] == data[4]) && (this->addr_oxi[1] == data[5])) { // if the packet is from the receiver
-//            ESP_LOGCONFIG(TAG, "  Receiver: %S ", str.c_str());
+//            ESP_LOGCONFIG(TAG, "  Receiver: %s ", str.c_str());
             this->oxi_product.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
           } // if the packet is from the receiver
           else if ((this->addr_to[0] == data[4]) && (this->addr_to[1] == data[5])) { // if the package is from the drive controller
-//            ESP_LOGCONFIG(TAG, "  Drive unit: %S ", str.c_str());
+//            ESP_LOGCONFIG(TAG, "  Drive unit: %s ", str.c_str());
             this->product_.assign(this->rx_message_.begin() + 14, this->rx_message_.end() - 2);
             std::vector<uint8_t> wla1       = {0x57,0x4C,0x41,0x31,0x00,0x06,0x57};
             std::vector<uint8_t> ROBUSHSR10 = {0x52,0x4F,0x42,0x55,0x53,0x48,0x53,0x52,0x31,0x30,0x00};
@@ -779,10 +779,10 @@ void NiceBusT4::parse_status_packet(const std::vector<uint8_t> &data) {
     ESP_LOGD(TAG, "RSP packet received");
     std::vector<uint8_t> vec_data(this->rx_message_.begin() + 12, this->rx_message_.end() - 3);
     std::string str(this->rx_message_.begin() + 12, this->rx_message_.end() - 3);
-    ESP_LOGI(TAG,  "Data string: %S ", str.c_str() );
+    ESP_LOGI(TAG,  "Data string: %s ", str.c_str() );
     std::string pretty_data = format_hex_pretty(vec_data);
-    ESP_LOGI(TAG,  "HEX data %S ", pretty_data.c_str() );
-    // ESP_LOGI(TAG,  "Dane wektorowe %S ", vec_data.c_str() );
+    ESP_LOGI(TAG,  "HEX data %s ", pretty_data.c_str() );
+    // ESP_LOGI(TAG,  "Dane wektorowe %s ", vec_data.c_str() );
     switch (data[9]) { // cmd_mnu
       case FOR_CU:
         ESP_LOGI(TAG, "Drive Controller Package");
@@ -1084,19 +1084,19 @@ void NiceBusT4::dump_config() {    //  add information about the connected contr
   ESP_LOGCONFIG(TAG, "  Closed gate position: %d", this->_pos_cls);
 
   std::string manuf_str(this->manufacturer_.begin(), this->manufacturer_.end());
-  ESP_LOGCONFIG(TAG, "  Manufacturer: %S ", manuf_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Manufacturer: %s ", manuf_str.c_str());
 
   std::string prod_str(this->product_.begin(), this->product_.end());
-  ESP_LOGCONFIG(TAG, "  Drive unit: %S ", prod_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Drive unit: %s ", prod_str.c_str());
 
   std::string hard_str(this->hardware_.begin(), this->hardware_.end());
-  ESP_LOGCONFIG(TAG, "  Drive hardware: %S ", hard_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Drive hardware: %s ", hard_str.c_str());
 
   std::string firm_str(this->firmware_.begin(), this->firmware_.end());
-  ESP_LOGCONFIG(TAG, "  Drive firmware: %S ", firm_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Drive firmware: %s ", firm_str.c_str());
   
   std::string dsc_str(this->description_.begin(), this->description_.end());
-  ESP_LOGCONFIG(TAG, "  Drive description: %S ", dsc_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Drive description: %s ", dsc_str.c_str());
 
 
   ESP_LOGCONFIG(TAG, "  Gateway address: 0x%02X%02X", addr_from[0], addr_from[1]);
@@ -1104,37 +1104,37 @@ void NiceBusT4::dump_config() {    //  add information about the connected contr
   ESP_LOGCONFIG(TAG, "  Receiver address: 0x%02X%02X", addr_oxi[0], addr_oxi[1]);
   
   std::string oxi_prod_str(this->oxi_product.begin(), this->oxi_product.end());
-  ESP_LOGCONFIG(TAG, "  Receiver: %S ", oxi_prod_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Receiver: %s ", oxi_prod_str.c_str());
   
   std::string oxi_hard_str(this->oxi_hardware.begin(), this->oxi_hardware.end());
-  ESP_LOGCONFIG(TAG, "  Receiver hardware: %S ", oxi_hard_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Receiver hardware: %s ", oxi_hard_str.c_str());
 
   std::string oxi_firm_str(this->oxi_firmware.begin(), this->oxi_firmware.end());
-  ESP_LOGCONFIG(TAG, "  Receiver firmware: %S ", oxi_firm_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Receiver firmware: %s ", oxi_firm_str.c_str());
   
   std::string oxi_dsc_str(this->oxi_description.begin(), this->oxi_description.end());
-  ESP_LOGCONFIG(TAG, "  Receiver Description: %S ", oxi_dsc_str.c_str());
+  ESP_LOGCONFIG(TAG, "  Receiver Description: %s ", oxi_dsc_str.c_str());
 
   //settings - level 1
-  ESP_LOGCONFIG(TAG, "  Auto close - L1: %S ", autocls_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Close after photo - L2: %S ", photocls_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Always close - L3: %S ", alwayscls_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Stand-by - L4: %S ", standby_flag ? "Yes" : "No");  
-  ESP_LOGCONFIG(TAG, "  Peak - L5: %S ", peak_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Pre-flasing - L6: %S ", preflashing_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Close becomes Partial open - L7: %S ", close_to_popen_flag ? "Yes" : "No");
-  ESP_LOGCONFIG(TAG, "  Slave mode - L8: %S ", slavemode_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Auto close - L1: %s ", autocls_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Close after photo - L2: %s ", photocls_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Always close - L3: %s ", alwayscls_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Stand-by - L4: %s ", standby_flag ? "Yes" : "No");  
+  ESP_LOGCONFIG(TAG, "  Peak - L5: %s ", peak_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Pre-flasing - L6: %s ", preflashing_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Close becomes Partial open - L7: %s ", close_to_popen_flag ? "Yes" : "No");
+  ESP_LOGCONFIG(TAG, "  Slave mode - L8: %s ", slavemode_flag ? "Yes" : "No");
 
   //settings - level 2
-  ESP_LOGCONFIG(TAG, "  Pause time level - level 2, L1: %u ", pause_time);
-  ESP_LOGCONFIG(TAG, "  Step by step mode - level 2, L2: %u ", step_by_step_mode);
-  ESP_LOGCONFIG(TAG, "  Motor speed open - level 2, L3: %u ", motor_speed_open);
-  ESP_LOGCONFIG(TAG, "  Motor speed close - level 2, L3: %u ", motor_speed_close);
-  ESP_LOGCONFIG(TAG, "  GOI mode - level 2, L4: %u ", out2);
-  ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %u ", motor_force_open);
-  ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %u ", motor_force_close);
-  ESP_LOGCONFIG(TAG, "  Number of cycles: %u ", p_count);
-  ESP_LOGCONFIG(TAG, "  Operator blocking: %S ", op_block_flag ? "Yes" : "No");  
+  ESP_LOGCONFIG(TAG, "  Pause time level - level 2, L1: %lu ", pause_time);
+  ESP_LOGCONFIG(TAG, "  Step by step mode - level 2, L2: %lu ", step_by_step_mode);
+  ESP_LOGCONFIG(TAG, "  Motor speed open - level 2, L3: %lu ", motor_speed_open);
+  ESP_LOGCONFIG(TAG, "  Motor speed close - level 2, L3: %lu ", motor_speed_close);
+  ESP_LOGCONFIG(TAG, "  GOI mode - level 2, L4: %lu ", out2);
+  ESP_LOGCONFIG(TAG, "  Motor force open - level 2, L5: %lu ", motor_force_open);
+  ESP_LOGCONFIG(TAG, "  Motor force close - level 2, L5: %lu ", motor_force_close);
+  ESP_LOGCONFIG(TAG, "  Number of cycles: %lu ", p_count);
+  ESP_LOGCONFIG(TAG, "  Operator blocking: %s ", op_block_flag ? "Yes" : "No");  
 
 }
 
@@ -1160,7 +1160,7 @@ std::vector<uint8_t> NiceBusT4::gen_control_cmd(const uint8_t control_cmd) {
 
   // to output the command to the log
   //  std::string pretty_cmd = format_hex_pretty(frame);
-  //  ESP_LOGI(TAG,  "Command formed: %S ", pretty_cmd.c_str() );
+  //  ESP_LOGI(TAG,  "Command formed: %s ", pretty_cmd.c_str() );
 
   return frame;
 }
@@ -1192,7 +1192,7 @@ std::vector<uint8_t> NiceBusT4::gen_inf_cmd(const uint8_t to_addr1, const uint8_
 
   // to output the command to the log
   //  std::string pretty_cmd = format_hex_pretty(frame);
-  //  ESP_LOGI(TAG,  "INF package generated: %S ", pretty_cmd.c_str() );
+  //  ESP_LOGI(TAG,  "INF package generated: %s ", pretty_cmd.c_str() );
 
   return frame;
 
@@ -1262,7 +1262,7 @@ void NiceBusT4::send_array_cmd(const uint8_t *data, size_t len) {
   delayMicroseconds(90);
 
   std::string pretty_cmd = format_hex_pretty(data, len);
-  ESP_LOGI(TAG, "Sent: %S", pretty_cmd.c_str());
+  ESP_LOGI(TAG, "Sent: %s", pretty_cmd.c_str());
 }
 
 // generating and sending inf commands from yaml configuration
